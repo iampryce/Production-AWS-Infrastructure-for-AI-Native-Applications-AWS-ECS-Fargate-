@@ -173,13 +173,13 @@ independently.
 
 Status legend: ✅ done · 🔄 in progress · ⬜ planned
 
-### Phase 0 — Repo scaffolding 🔄
+### Phase 0 — Repo scaffolding ✅
 - [x] Directory structure per `docs/ARCHITECTURE.md`
 - [x] Git initialized, `.gitignore` added
 - [x] `README.md`, badges
 - [x] Terraform bootstrap module written (S3 state bucket, native S3 state locking)
-- [ ] `terraform plan` reviewed and bootstrap applied
-- [ ] Initial commit
+- [x] `terraform plan` reviewed and bootstrap applied (`aws-ai-native-infra-tfstate-1caa89b6`, us-east-1)
+- [x] Initial commit
 
 ### Phase 1 — Networking module ⬜
 VPC, 7 subnets (2 public / 2 app / 2 data / 1 ops), route tables, NAT (fck-nat
