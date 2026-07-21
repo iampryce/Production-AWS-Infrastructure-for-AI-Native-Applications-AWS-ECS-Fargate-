@@ -18,3 +18,8 @@ variable "fck_nat_ha" {
   type        = bool
   default     = false
 }
+
+variable "multi_az" {
+  description = "No default — must come from this environment's terraform.tfvars. false in dev/staging, true in prod."
+  type        = bool
+}

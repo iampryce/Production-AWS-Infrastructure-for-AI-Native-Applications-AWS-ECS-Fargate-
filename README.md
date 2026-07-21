@@ -181,13 +181,18 @@ Status legend: ✅ done · 🔄 in progress · ⬜ planned
 - [x] `terraform plan` reviewed and bootstrap applied (`aws-ai-native-infra-tfstate-1caa89b6`, us-east-1)
 - [x] Initial commit
 
-### Phase 1 — Networking module ⬜
+### Phase 1 — Networking module ✅
 VPC, 7 subnets (2 public / 2 app / 2 data / 1 ops), route tables, NAT (fck-nat
-non-prod / NAT Gateway per-AZ prod), security group chain. `ADR-001`.
+non-prod / NAT Gateway per-AZ prod), security group chain. `ADR-001`. Plan
+reviewed (45 to add, 0 to change/destroy) — apply is yours to run.
 
-### Phase 2 — Database module ⬜
-RDS Postgres 16 + pgvector, `multi_az` variable, Alembic initial + example migration.
-`ADR-002`.
+### Phase 2 — Database module ✅
+RDS Postgres 16 + pgvector, `multi_az` variable (no default, dev = false),
+Secrets Manager-managed master password (never in state/config). Alembic
+set up in `backend/`, two migrations written and verified against a real
+local Postgres 16 + pgvector container (upgrade/downgrade round trip
+confirmed). `ADR-002`. Plan reviewed (48 to add total, 0 to change/destroy)
+— apply is yours to run.
 
 ### Phase 3 — Redis module ⬜
 ElastiCache replication group, automatic failover variable. `ADR-003`.

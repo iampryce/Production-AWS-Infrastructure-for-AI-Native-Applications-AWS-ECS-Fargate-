@@ -19,3 +19,23 @@ module "network" {
     ManagedBy   = "terraform"
   }
 }
+
+module "rds" {
+  source = "../../modules/rds"
+
+  project_name = var.project_name
+  environment  = "dev"
+
+  data_subnet_ids   = values(module.network.data_subnet_ids)
+  security_group_id = module.network.data_security_group_id
+
+  # From this environment's terraform.tfvars — false in dev, no default in
+  # the module itself.
+  multi_az = var.multi_az
+
+  tags = {
+    Environment = "dev"
+    Project     = var.project_name
+    ManagedBy   = "terraform"
+  }
+}

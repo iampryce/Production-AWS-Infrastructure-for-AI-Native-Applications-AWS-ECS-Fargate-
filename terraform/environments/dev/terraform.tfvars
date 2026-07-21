@@ -6,3 +6,7 @@ project_name = "aws-ai-native-infra"
 # instead, which always gets one NAT Gateway per AZ regardless of fck_nat_ha.
 nat_type   = "fck-nat"
 fck_nat_ha = false
+
+# Cost-optimized, non-prod choice: single-AZ RDS. Prod's terraform.tfvars
+# sets multi_az = true (synchronous standby + automatic failover).
+multi_az = false
