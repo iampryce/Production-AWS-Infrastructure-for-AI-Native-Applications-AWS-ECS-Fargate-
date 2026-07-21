@@ -1,0 +1,66 @@
+name: Terraform Apply (main)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "terraform/**"
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      environments: ${{ steps.list.outputs.environments }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: list
+        run: |
+          envs=$(find terraform/environments -mindepth 1 -maxdepth 1 -type d \
+            -exec test -f '{}/main.tf' \; -print \
+            | xargs -n1 basename | sort | jq -R -s -c 'split("\n")[:-1]')
+          echo "environments=$envs" >> "$GITHUB_OUTPUT"
+
+  apply:
+    needs: discover
+    if: needs.discover.outputs.environments != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        environment: ${{ fromJson(needs.discover.outputs.environments) }}
+      # One environment at a time — avoids two applies racing against
+      # unrelated state files for no benefit, and keeps apply logs readable.
+      max-parallel: 1
+    # Ties each matrix job to a GitHub Environment of the same name
+    # (dev/staging/prod). Add required reviewers on that Environment in repo
+    # settings for a manual approval gate before this job runs — that's a
+    # one-time repo setting, not something Terraform manages.
+    environment: ${{ matrix.environment }}
+    permissions:
+      id-token: write # required for OIDC
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      # Read-write role — only assumable from this exact branch (main),
+      # enforced by the OIDC trust condition in terraform/bootstrap, not
+      # just by this workflow's `on: push branches: [main]` trigger.
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN_APPLY }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.14.6"
+
+      - name: Terraform Init
+        working-directory: terraform/environments/${{ matrix.environment }}
+        run: terraform init -input=false
+
+      - name: Terraform Apply
+        working-directory: terraform/environments/${{ matrix.environment }}
+        run: terraform apply -input=false -auto-approve

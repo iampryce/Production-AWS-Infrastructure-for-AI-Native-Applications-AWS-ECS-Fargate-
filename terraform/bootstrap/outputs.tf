@@ -6,3 +6,13 @@ output "state_bucket_name" {
 output "aws_region" {
   value = var.aws_region
 }
+
+output "github_actions_plan_role_arn" {
+  description = "Set as AWS_ROLE_ARN_PLAN in the GitHub repo (or reference directly in the workflow)."
+  value       = aws_iam_role.github_plan.arn
+}
+
+output "github_actions_apply_role_arn" {
+  description = "Set as AWS_ROLE_ARN_APPLY in the GitHub repo. Only assumable from the main branch."
+  value       = aws_iam_role.github_apply.arn
+}

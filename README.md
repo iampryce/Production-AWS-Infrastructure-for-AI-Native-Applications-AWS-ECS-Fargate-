@@ -194,29 +194,40 @@ local Postgres 16 + pgvector container (upgrade/downgrade round trip
 confirmed). `ADR-002`. Plan reviewed (48 to add total, 0 to change/destroy)
 — apply is yours to run.
 
+### CI/CD pulled forward (between Phase 2 and Phase 3) ✅
+Originally scheduled for Phase 5 — moved up so every apply from here on
+goes through GitHub Actions, never a local terminal. OIDC federation (no
+AWS access keys anywhere), two project-scoped IAM roles added to
+`terraform/bootstrap` (read-only `plan` role usable from any branch/PR;
+read-write `apply` role restricted by trust condition to `ref:refs/heads/main`
+only), and a dynamic-matrix `terraform-plan-on-pr.yml` /
+`terraform-apply-on-main.yml` pair that discovers `terraform/environments/*`
+automatically. `ADR-003`. Bootstrap plan reviewed (4 to add, 0 to
+change/destroy) — apply is yours to run, same as the state bucket.
+
 ### Phase 3 — Redis module ⬜
-ElastiCache replication group, automatic failover variable. `ADR-003`.
+ElastiCache replication group, automatic failover variable. `ADR-004`.
 
 ### Phase 4 — ECS Fargate module ⬜
 Cluster, two services (FastAPI, Celery), placeholder image reference only,
-autoscaling. `ADR-004`.
+autoscaling. `ADR-005`.
 
 ### Phase 5 — Decoupled deploy pipeline ⬜
-`image-build-deploy.yml` (SHA + moving tag, force-new-deployment), Terraform
-plan-on-PR/apply-on-main workflows. `ADR-005`.
+Terraform GitOps pair already done (see above, pulled forward). Remaining:
+`image-build-deploy.yml` (SHA + moving tag, force-new-deployment). `ADR-006`.
 
 ### Phase 6 — Edge / CDN / WAF ⬜
-CloudFront + OAC, WAF, Route 53, ACM. `ADR-006`.
+CloudFront + OAC, WAF, Route 53, ACM. `ADR-007`.
 
 ### Phase 7 — Cloudflare Tunnel ⬜
-EC2 + `cloudflared` in the ops subnet, zero inbound rules. `ADR-007`.
+EC2 + `cloudflared` in the ops subnet, zero inbound rules. `ADR-008`.
 
 ### Phase 8 — Self-hosted Flagsmith ⬜
-EC2 + its own RDS, Secrets Manager-backed credentials. `ADR-008`.
+EC2 + its own RDS, Secrets Manager-backed credentials. `ADR-009`.
 
 ### Phase 9 — Observability stack ⬜
 CloudWatch -> SNS -> Lambda -> Slack; OTel collector -> Grafana Cloud + Jaeger; Sentry
-and LangSmith via direct SDKs; Flower standalone. `ADR-009`.
+and LangSmith via direct SDKs; Flower standalone. `ADR-010`.
 
 ### Phase 10 — Backend application code ⬜
 FastAPI: submit/status/result endpoints, Postgres + Celery/Redis integration.

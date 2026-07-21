@@ -50,7 +50,7 @@ assumes its non-negotiable decisions are already loaded into context.
 - `terraform/modules/redis`: ElastiCache Redis as a replication group,
   automatic failover as a variable (true in prod, false by default in
   dev/staging), placed across the two data subnets.
-- Write `docs/ADRs/ADR-003-elasticache-replication-and-sizing.md`.
+- Write `docs/ADRs/ADR-004-elasticache-replication-and-sizing.md`.
 
 ### Phase 4 — ECS Fargate module (infra shape only, two services)
 - `terraform/modules/ecs`: one cluster, TWO separate task definitions and
@@ -61,11 +61,15 @@ assumes its non-negotiable decisions are already loaded into context.
   Terraform — do not wire a specific tag in.
 - Autoscaling policy per service (state clearly in the ADR whether you're
   scaling on CPU, memory, or ALB request count per target).
-- Write `docs/ADRs/ADR-004-ecs-fargate-vs-eks-and-two-services.md` —
+- Write `docs/ADRs/ADR-005-ecs-fargate-vs-eks-and-two-services.md` —
   cover both why Fargate over EKS, and why FastAPI and Celery are
   separate services rather than one.
 
 ### Phase 5 — Decoupled deploy pipeline (get this exactly right)
+- **Terraform GitOps pair pulled forward to right after Phase 2** (see
+  "CI/CD pulled forward" note below) — `terraform-plan-on-pr.yml` and
+  `terraform-apply-on-main.yml` already exist and are in use from Phase 3
+  onward. Nothing left to do for that part here.
 - `.github/workflows/image-build-deploy.yml`:
   1. Build the image.
   2. Push to ECR tagged with the git SHA (immutable).
@@ -73,16 +77,46 @@ assumes its non-negotiable decisions are already loaded into context.
      tag.
   4. Call `aws ecs update-service --cluster ... --service ... --force-new-deployment`
      for the relevant service (FastAPI or Celery, whichever changed).
-- `.github/workflows/terraform-plan-on-pr.yml` and
-  `terraform-apply-on-main.yml`: standard Terraform GitOps pair, scoped to
-  infra changes only — these workflows must never touch ECR or call
-  `update-service`.
-- Write `docs/ADRs/ADR-005-decoupled-deploy-strategy.md` — this is the
+  This workflow must never touch Terraform state or call `terraform apply`
+  — it only builds/pushes images and rolls the ECS service, same
+  separation of concerns as the plan/apply pair being infra-only.
+- Write `docs/ADRs/ADR-006-decoupled-deploy-strategy.md` — this is the
   most important ADR in the project. Explicitly address: why two tags
   (SHA + moving) instead of one, how rollback works (re-run the workflow
   pointing `:prod` at a prior SHA), and how deployment history is
   recovered despite the moving tag (ECS deployment events + the SHA tag
   as the audit trail).
+
+---
+
+### CI/CD pulled forward (mid-Phase-2 decision)
+
+Originally the Terraform plan/apply GitHub Actions pair was scheduled for
+Phase 5 alongside the image deploy pipeline. That got moved earlier — no
+`terraform apply` runs from a local terminal from this point on, only
+through GitHub Actions. What was added, ahead of schedule:
+
+- `terraform/bootstrap/github-oidc.tf`: reuses the existing GitHub OIDC
+  provider in this AWS account (one per account, shared across projects)
+  and adds two **new, project-scoped** IAM roles:
+  - `aws-ai-native-infra-github-actions-plan` — `ReadOnlyAccess`, assumable
+    from any branch/PR of this repo. Can never mutate infrastructure.
+  - `aws-ai-native-infra-github-actions-apply` — read-write, but the OIDC
+    trust condition restricts it to `ref:refs/heads/main` only. Its
+    permission policy is scoped to what Phases 0-2 actually use (EC2, RDS,
+    Secrets Manager read, IAM limited to this project's naming prefix, and
+    this project's own state bucket) — expand it phase by phase as new
+    modules land, not upfront.
+- `.github/workflows/terraform-plan-on-pr.yml` and
+  `terraform-apply-on-main.yml`: a dynamic matrix discovers which
+  `terraform/environments/*` directories actually have a `main.tf`, so
+  adding staging/prod later needs no workflow edits. Plan runs (and
+  comments the output) on every PR touching `terraform/**`; apply runs on
+  push to `main`, one environment at a time, each tied to a GitHub
+  Environment of the same name (`dev`/`staging`/`prod`) so required
+  reviewers can be added per environment as a repo setting.
+
+See `docs/ADRs/ADR-003-cicd-pulled-forward-oidc.md`.
 
 ### Phase 6 — Edge / CDN / WAF
 - `terraform/modules/cloudfront`: CloudFront distribution with Origin
@@ -90,20 +124,20 @@ assumes its non-negotiable decisions are already loaded into context.
   Route 53 record, ACM certificate. Confirm the request path is Route 53
   -> CloudFront (with WAF attached at the edge) -> ALB, not WAF as a
   separate sequential hop.
-- Write `docs/ADRs/ADR-006-cloudfront-oac-and-waf.md`.
+- Write `docs/ADRs/ADR-007-cloudfront-oac-and-waf.md`.
 
 ### Phase 7 — Cloudflare Tunnel (replaces bastion)
 - `terraform/modules/cloudflare-tunnel`: EC2 instance in the ops subnet
   running `cloudflared`, tunnel config, zero inbound security group rules
   from the internet.
-- Write `docs/ADRs/ADR-007-cloudflare-tunnel-vs-bastion.md`.
+- Write `docs/ADRs/ADR-008-cloudflare-tunnel-vs-bastion.md`.
 
 ### Phase 8 — Self-hosted Flagsmith
 - `terraform/modules/flagsmith`: EC2 instance in the ops subnet running
   Flagsmith, its own small RDS instance, wired to Secrets Manager for its
   own DB credentials. Reachable only from the app subnets (internal VPC
   traffic) and via the Cloudflare Tunnel for admin access.
-- Write `docs/ADRs/ADR-008-self-hosted-flagsmith.md`.
+- Write `docs/ADRs/ADR-009-self-hosted-flagsmith.md`.
 
 ### Phase 9 — Observability stack (two pipelines, built as designed)
 - `terraform/modules/monitoring`:
@@ -118,7 +152,7 @@ assumes its non-negotiable decisions are already loaded into context.
   collector).
 - Flower deployed in the ops subnet, self-hosted, standalone — no
   external forwarding.
-- Write `docs/ADRs/ADR-009-observability-two-pipelines.md` — explicitly
+- Write `docs/ADRs/ADR-010-observability-two-pipelines.md` — explicitly
   explain why alerting is CloudWatch-only and why Sentry/LangSmith bypass
   the OTel collector via their own SDKs.
 
