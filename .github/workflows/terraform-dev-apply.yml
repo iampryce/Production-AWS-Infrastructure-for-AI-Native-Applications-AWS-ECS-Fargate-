@@ -1,0 +1,52 @@
+name: Terraform Apply (dev)
+
+# One workflow per environment, on purpose — no dynamic discovery/matrix.
+# When staging/prod exist, copy this file and swap "dev" for that
+# environment's name and paths.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "terraform/modules/**"
+      - "terraform/environments/dev/**"
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    # Add required reviewers on the "dev" GitHub Environment (repo Settings)
+    # for an extra manual approval gate on top of "merge to main" itself.
+    environment: dev
+    permissions:
+      id-token: write # required for OIDC
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      # Read-write role — only assumable from main, enforced by the OIDC
+      # trust condition in terraform/bootstrap, not just this trigger.
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN_APPLY }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.14.6"
+
+      - name: Terraform Init
+        working-directory: terraform/environments/dev
+        run: terraform init -input=false
+
+      - name: Terraform Plan
+        working-directory: terraform/environments/dev
+        run: terraform plan -input=false -no-color -out=tfplan
+
+      - name: Terraform Apply
+        working-directory: terraform/environments/dev
+        # Applies the exact plan just generated in this job, not a fresh
+        # plan re-evaluated at apply time.
+        run: terraform apply -input=false tfplan

@@ -118,9 +118,9 @@ project9-ai-native-infra/
     bootstrap/                 # S3 backend, native S3 state locking, applied once
   .github/
     workflows/
-      terraform-plan-on-pr.yml
-      terraform-apply-on-main.yml
-      image-build-deploy.yml   # decoupled image rollout, SHA + moving tag
+      terraform-dev-plan.yml    # one hardcoded pair per environment, no
+      terraform-dev-apply.yml   # dynamic discovery — copy-paste for staging/prod
+      image-build-deploy.yml    # decoupled image rollout, SHA + moving tag
   docs/
     ARCHITECTURE.md            # this file
     BUILD_PLAN.md

@@ -1,38 +1,22 @@
-name: Terraform Plan (PR)
+name: Terraform Plan (dev)
+
+# One workflow per environment, on purpose — no dynamic discovery/matrix.
+# When staging/prod exist, copy this file and swap "dev" for that
+# environment's name and paths.
 
 on:
   pull_request:
     branches: [main]
     paths:
-      - "terraform/**"
+      - "terraform/modules/**"
+      - "terraform/environments/dev/**"
 
 permissions:
   contents: read
 
 jobs:
-  discover:
-    runs-on: ubuntu-latest
-    outputs:
-      environments: ${{ steps.list.outputs.environments }}
-    steps:
-      - uses: actions/checkout@v4
-
-      # Discovers environments dynamically (dev today, staging/prod later)
-      # so this workflow never needs editing when a new environment is added.
-      - id: list
-        run: |
-          envs=$(find terraform/environments -mindepth 1 -maxdepth 1 -type d \
-            -exec test -f '{}/main.tf' \; -print \
-            | xargs -n1 basename | sort | jq -R -s -c 'split("\n")[:-1]')
-          echo "environments=$envs" >> "$GITHUB_OUTPUT"
-
   plan:
-    needs: discover
-    if: needs.discover.outputs.environments != '[]'
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        environment: ${{ fromJson(needs.discover.outputs.environments) }}
     permissions:
       id-token: write # required for OIDC
       contents: read
@@ -40,9 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Read-only role, assumable from any branch/PR — this job can never
-      # mutate real infrastructure even if the workflow itself were broken
-      # or malicious on a fork/branch.
+      # Read-only role — this job can never mutate real infrastructure.
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN_PLAN }}
@@ -53,12 +35,12 @@ jobs:
           terraform_version: "1.14.6"
 
       - name: Terraform Init
-        working-directory: terraform/environments/${{ matrix.environment }}
+        working-directory: terraform/environments/dev
         run: terraform init -input=false
 
       - name: Terraform Plan
         id: plan
-        working-directory: terraform/environments/${{ matrix.environment }}
+        working-directory: terraform/environments/dev
         run: terraform plan -input=false -no-color
         continue-on-error: true
 
@@ -66,7 +48,7 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const body = `#### Terraform Plan — \`${{ matrix.environment }}\` (${{ steps.plan.outcome }})
+            const body = `#### Terraform Plan — \`dev\` (${{ steps.plan.outcome }})
             <details><summary>Show plan</summary>
 
             \`\`\`

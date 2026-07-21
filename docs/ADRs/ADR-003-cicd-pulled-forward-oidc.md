@@ -57,12 +57,17 @@ this project's own state bucket. ElastiCache, ECS, CloudFront, Route 53,
 ACM, Lambda, and SNS permissions get added when those modules actually
 land in Phases 3+, not granted speculatively now.
 
-**Environments discovered dynamically.** Both workflows list
-`terraform/environments/*` directories that actually contain a `main.tf`
-and build a matrix from that, instead of hardcoding `dev`. Adding
-`staging`/`prod` later needs zero workflow changes. Each matrix job in the
-apply workflow is tied to a GitHub Environment of the same name
-(`environment: dev`, etc.) — required-reviewer protection rules can be
+**One workflow pair per environment, not dynamic discovery.** An earlier
+version of this had a single plan/apply pair that auto-discovered every
+`terraform/environments/*` directory and built a matrix from it — technically
+slicker, but it hid "which environment does this actually touch" behind a
+bash/jq script, which is the wrong thing to optimize away on a project meant
+to be read and explained. `terraform-dev-plan.yml` and
+`terraform-dev-apply.yml` are hardcoded to `dev`, full stop. When
+staging/prod exist, they get their own copy-pasted pair
+(`terraform-staging-plan.yml`, etc.) rather than folding into shared
+discovery logic. Each apply workflow is tied to a GitHub Environment of the
+same name (`environment: dev`) — required-reviewer protection rules can be
 added per environment later as a plain repo setting, giving prod a manual
 approval gate without any code change.
 

@@ -67,9 +67,10 @@ assumes its non-negotiable decisions are already loaded into context.
 
 ### Phase 5 — Decoupled deploy pipeline (get this exactly right)
 - **Terraform GitOps pair pulled forward to right after Phase 2** (see
-  "CI/CD pulled forward" note below) — `terraform-plan-on-pr.yml` and
-  `terraform-apply-on-main.yml` already exist and are in use from Phase 3
-  onward. Nothing left to do for that part here.
+  "CI/CD pulled forward" note below) — `terraform-dev-plan.yml` and
+  `terraform-dev-apply.yml` already exist and are in use from Phase 3
+  onward. Nothing left to do for that part here except add the
+  staging/prod equivalents once those environments exist.
 - `.github/workflows/image-build-deploy.yml`:
   1. Build the image.
   2. Push to ECR tagged with the git SHA (immutable).
@@ -107,14 +108,15 @@ through GitHub Actions. What was added, ahead of schedule:
     Secrets Manager read, IAM limited to this project's naming prefix, and
     this project's own state bucket) — expand it phase by phase as new
     modules land, not upfront.
-- `.github/workflows/terraform-plan-on-pr.yml` and
-  `terraform-apply-on-main.yml`: a dynamic matrix discovers which
-  `terraform/environments/*` directories actually have a `main.tf`, so
-  adding staging/prod later needs no workflow edits. Plan runs (and
-  comments the output) on every PR touching `terraform/**`; apply runs on
-  push to `main`, one environment at a time, each tied to a GitHub
-  Environment of the same name (`dev`/`staging`/`prod`) so required
-  reviewers can be added per environment as a repo setting.
+- `.github/workflows/terraform-dev-plan.yml` and `terraform-dev-apply.yml`:
+  one workflow pair per environment, hardcoded, no dynamic
+  discovery/matrix — easier to read than clever. Plan runs (and comments
+  the output) on PRs into `main` touching `terraform/modules/**` or
+  `terraform/environments/dev/**`; apply runs on push to `main`, tied to
+  a GitHub Environment named `dev` so required reviewers can be added as a
+  repo setting. Staging/prod get their own copy-pasted
+  `terraform-staging-*.yml` / `terraform-prod-*.yml` pair when those
+  environments are built, not a shared discovery script.
 
 See `docs/ADRs/ADR-003-cicd-pulled-forward-oidc.md`.
 
