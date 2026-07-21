@@ -151,7 +151,17 @@ without asking first.
   within a phase. If you think later-phase work is needed to finish the
   current one, stop and ask me.
 - **Never run `terraform apply` against real AWS without showing me the
-  plan first and getting explicit confirmation.**
+  plan first and getting explicit confirmation.** As of ADR-003 (CI/CD
+  pulled forward from Phase 5), this now happens structurally, not just by
+  habit: `terraform apply` runs only inside GitHub Actions
+  (`.github/workflows/terraform-dev.yml`'s `apply` job), triggered by a
+  push to `main` — i.e. a merged, reviewed PR. Nobody, including you,
+  should run `terraform apply` from a local terminal against `dev`,
+  `staging`, or `prod` from this point on; `terraform plan`/`validate`
+  locally is still fine for iterating on a module before opening a PR.
+  `terraform/bootstrap/` is the one deliberate exception — it creates the
+  state bucket and CI/CD's own IAM roles, so it can't apply through CI/CD
+  it doesn't have yet, and stays a by-hand apply.
 - **After finishing each infrastructure module**, write a short ADR in
   `docs/ADRs/` explaining the decision and tradeoffs in plain, spoken
   language — the way I'd actually explain it out loud in an interview.

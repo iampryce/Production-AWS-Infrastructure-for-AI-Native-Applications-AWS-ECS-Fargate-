@@ -66,11 +66,10 @@ assumes its non-negotiable decisions are already loaded into context.
   separate services rather than one.
 
 ### Phase 5 — Decoupled deploy pipeline (get this exactly right)
-- **Terraform GitOps pair pulled forward to right after Phase 2** (see
-  "CI/CD pulled forward" note below) — `terraform-dev-plan.yml` and
-  `terraform-dev-apply.yml` already exist and are in use from Phase 3
-  onward. Nothing left to do for that part here except add the
-  staging/prod equivalents once those environments exist.
+- **Terraform GitOps workflow pulled forward to right after Phase 2** (see
+  "CI/CD pulled forward" note below) — `terraform-dev.yml` already exists
+  and is in use from Phase 3 onward. Nothing left to do for that part here
+  except add the staging/prod equivalents once those environments exist.
 - `.github/workflows/image-build-deploy.yml`:
   1. Build the image.
   2. Push to ECR tagged with the git SHA (immutable).
@@ -108,15 +107,16 @@ through GitHub Actions. What was added, ahead of schedule:
     Secrets Manager read, IAM limited to this project's naming prefix, and
     this project's own state bucket) — expand it phase by phase as new
     modules land, not upfront.
-- `.github/workflows/terraform-dev-plan.yml` and `terraform-dev-apply.yml`:
-  one workflow pair per environment, hardcoded, no dynamic
-  discovery/matrix — easier to read than clever. Plan runs (and comments
-  the output) on PRs into `main` touching `terraform/modules/**` or
-  `terraform/environments/dev/**`; apply runs on push to `main`, tied to
-  a GitHub Environment named `dev` so required reviewers can be added as a
-  repo setting. Staging/prod get their own copy-pasted
-  `terraform-staging-*.yml` / `terraform-prod-*.yml` pair when those
-  environments are built, not a shared discovery script.
+- `.github/workflows/terraform-dev.yml`: one workflow file per
+  environment, hardcoded, no dynamic discovery/matrix — easier to read
+  than clever. Two jobs gated by event type, not two files: `plan` (PRs
+  into `main` touching `terraform/modules/**` or
+  `terraform/environments/dev/**`, read-only role, comments the plan) and
+  `apply` (push to `main`, read-write role, applies the exact saved plan),
+  tied to a GitHub Environment named `dev` so required reviewers can be
+  added as a repo setting. Staging/prod get their own copy-pasted
+  `terraform-staging.yml` / `terraform-prod.yml` when those environments
+  are built, not a shared discovery script.
 
 See `docs/ADRs/ADR-003-cicd-pulled-forward-oidc.md`.
 

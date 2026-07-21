@@ -9,7 +9,7 @@ resource "aws_route_table" "public" {
 resource "aws_route" "public_internet" {
   route_table_id         = aws_route_table.public.id
   destination_cidr_block = "0.0.0.0/0"
-  gateway_id              = aws_internet_gateway.this.id
+  gateway_id             = aws_internet_gateway.this.id
 }
 
 resource "aws_route_table_association" "public" {
@@ -31,11 +31,11 @@ resource "aws_route_table" "private" {
 }
 
 resource "aws_route" "private_default" {
-  for_each                = aws_route_table.private
-  route_table_id          = each.value.id
-  destination_cidr_block  = "0.0.0.0/0"
-  nat_gateway_id          = var.nat_type == "nat-gateway" ? aws_nat_gateway.this[local.nat_target_az_for[each.key]].id : null
-  network_interface_id    = var.nat_type == "fck-nat" ? aws_instance.fck_nat[local.nat_target_az_for[each.key]].primary_network_interface_id : null
+  for_each               = aws_route_table.private
+  route_table_id         = each.value.id
+  destination_cidr_block = "0.0.0.0/0"
+  nat_gateway_id         = var.nat_type == "nat-gateway" ? aws_nat_gateway.this[local.nat_target_az_for[each.key]].id : null
+  network_interface_id   = var.nat_type == "fck-nat" ? aws_instance.fck_nat[local.nat_target_az_for[each.key]].primary_network_interface_id : null
 }
 
 resource "aws_route_table_association" "app" {
@@ -63,8 +63,8 @@ resource "aws_route_table" "ops" {
 resource "aws_route" "ops_default" {
   route_table_id         = aws_route_table.ops.id
   destination_cidr_block = "0.0.0.0/0"
-  nat_gateway_id          = var.nat_type == "nat-gateway" ? aws_nat_gateway.this[local.nat_target_az_for[var.ops_az]].id : null
-  network_interface_id    = var.nat_type == "fck-nat" ? aws_instance.fck_nat[local.nat_target_az_for[var.ops_az]].primary_network_interface_id : null
+  nat_gateway_id         = var.nat_type == "nat-gateway" ? aws_nat_gateway.this[local.nat_target_az_for[var.ops_az]].id : null
+  network_interface_id   = var.nat_type == "fck-nat" ? aws_instance.fck_nat[local.nat_target_az_for[var.ops_az]].primary_network_interface_id : null
 }
 
 resource "aws_route_table_association" "ops" {

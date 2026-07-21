@@ -57,19 +57,23 @@ this project's own state bucket. ElastiCache, ECS, CloudFront, Route 53,
 ACM, Lambda, and SNS permissions get added when those modules actually
 land in Phases 3+, not granted speculatively now.
 
-**One workflow pair per environment, not dynamic discovery.** An earlier
+**One workflow file per environment, not dynamic discovery.** An earlier
 version of this had a single plan/apply pair that auto-discovered every
 `terraform/environments/*` directory and built a matrix from it — technically
 slicker, but it hid "which environment does this actually touch" behind a
 bash/jq script, which is the wrong thing to optimize away on a project meant
-to be read and explained. `terraform-dev-plan.yml` and
-`terraform-dev-apply.yml` are hardcoded to `dev`, full stop. When
-staging/prod exist, they get their own copy-pasted pair
-(`terraform-staging-plan.yml`, etc.) rather than folding into shared
-discovery logic. Each apply workflow is tied to a GitHub Environment of the
-same name (`environment: dev`) — required-reviewer protection rules can be
-added per environment later as a plain repo setting, giving prod a manual
-approval gate without any code change.
+to be read and explained. `terraform-dev.yml` is hardcoded to `dev`, full
+stop. It briefly existed as two separate files (`terraform-dev-plan.yml` /
+`terraform-dev-apply.yml`) before being folded back into one file with two
+jobs — `plan` gated to `pull_request` events, `apply` gated to `push`
+events — since one file is easier to open and read top to bottom, and the
+job split (not a file split) is what actually carries the security-relevant
+distinction between the two IAM roles. When staging/prod exist, they get
+their own copy-pasted `terraform-staging.yml` / `terraform-prod.yml` rather
+than folding into shared discovery logic. The apply job is tied to a GitHub
+Environment of the same name (`environment: dev`) — required-reviewer
+protection rules can be added per environment later as a plain repo
+setting, giving prod a manual approval gate without any code change.
 
 ## Consequences
 

@@ -97,7 +97,7 @@ CloudWatch Alarms -> SNS -> Lambda -> Slack.
 ## Repo structure
 
 ```
-project9-ai-native-infra/
+aws-ai-native-infra/
   frontend/                  # Next.js 14
   backend/                   # FastAPI, Python 3.11, Alembic migrations
   workers/                   # Celery workers
@@ -118,8 +118,8 @@ project9-ai-native-infra/
     bootstrap/                 # S3 backend, native S3 state locking, applied once
   .github/
     workflows/
-      terraform-dev-plan.yml    # one hardcoded pair per environment, no
-      terraform-dev-apply.yml   # dynamic discovery — copy-paste for staging/prod
+      terraform-dev.yml         # plan + apply jobs, one file per environment,
+                                 # no dynamic discovery — copy-paste for staging/prod
       image-build-deploy.yml    # decoupled image rollout, SHA + moving tag
   docs/
     ARCHITECTURE.md            # this file

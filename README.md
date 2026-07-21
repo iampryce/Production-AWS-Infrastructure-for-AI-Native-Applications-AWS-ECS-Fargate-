@@ -200,12 +200,13 @@ goes through GitHub Actions, never a local terminal. OIDC federation (no
 AWS access keys anywhere), two project-scoped IAM roles added to
 `terraform/bootstrap` (read-only `plan` role usable from any branch/PR;
 read-write `apply` role restricted by trust condition to `ref:refs/heads/main`
-only), and one hardcoded workflow pair per environment —
-`terraform-dev-plan.yml` (PRs into `main`, comments the plan) and
-`terraform-dev-apply.yml` (push to `main`, plans and applies that exact
-saved plan). No dynamic discovery/matrix — staging/prod get their own
-copy-pasted pair when they exist. `ADR-003`. Bootstrap plan reviewed (4 to
-add, 0 to change/destroy) — apply is yours to run, same as the state
+only), and one workflow file per environment, `terraform-dev.yml` — a
+`plan` job (PRs into `main`, read-only role, comments the plan) and an
+`apply` job (push to `main`, read-write role, applies that exact saved
+plan) in the same file, gated by event type. No dynamic discovery/matrix
+— staging/prod get their own copy-pasted `terraform-staging.yml` /
+`terraform-prod.yml` when they exist. `ADR-003`. Bootstrap plan reviewed
+(4 to add, 0 to change/destroy) — apply is yours to run, same as the state
 bucket.
 
 ### Phase 3 — Redis module ⬜
