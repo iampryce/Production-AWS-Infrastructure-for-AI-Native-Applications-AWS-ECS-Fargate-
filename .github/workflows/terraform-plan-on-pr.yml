@@ -2,6 +2,7 @@ name: Terraform Plan (PR)
 
 on:
   pull_request:
+    branches: [main]
     paths:
       - "terraform/**"
 
