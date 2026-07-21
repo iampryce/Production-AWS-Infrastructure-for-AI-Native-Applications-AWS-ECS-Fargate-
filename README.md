@@ -177,7 +177,7 @@ Status legend: ✅ done · 🔄 in progress · ⬜ planned
 - [x] Directory structure per `docs/ARCHITECTURE.md`
 - [x] Git initialized, `.gitignore` added
 - [x] `README.md`, badges
-- [x] Terraform bootstrap module written (S3 state bucket + DynamoDB lock table)
+- [x] Terraform bootstrap module written (S3 state bucket, native S3 state locking)
 - [ ] `terraform plan` reviewed and bootstrap applied
 - [ ] Initial commit
 

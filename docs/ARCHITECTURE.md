@@ -115,7 +115,7 @@ project9-ai-native-infra/
       dev/
       staging/
       prod/
-    bootstrap/                 # S3 backend + DynamoDB lock table, applied once
+    bootstrap/                 # S3 backend, native S3 state locking, applied once
   .github/
     workflows/
       terraform-plan-on-pr.yml

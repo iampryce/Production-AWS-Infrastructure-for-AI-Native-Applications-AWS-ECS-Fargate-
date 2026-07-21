@@ -2,13 +2,15 @@ provider "aws" {
   region = var.aws_region
 }
 
-data "aws_caller_identity" "current" {}
+# S3 bucket names are globally unique across all AWS accounts, not just
+# this one — a random suffix avoids collisions without baking the account
+# ID into the name.
+resource "random_id" "state_bucket_suffix" {
+  byte_length = 4
+}
 
-# Bucket name includes the account ID so it's globally unique without
-# relying on a random suffix.
 locals {
-  state_bucket_name = "${var.project_name}-tfstate-${data.aws_caller_identity.current.account_id}"
-  lock_table_name    = "${var.project_name}-tfstate-lock"
+  state_bucket_name = "${var.project_name}-tfstate-${random_id.state_bucket_suffix.hex}"
 }
 
 resource "aws_s3_bucket" "terraform_state" {
@@ -46,17 +48,6 @@ resource "aws_s3_bucket_public_access_block" "terraform_state" {
   restrict_public_buckets = true
 }
 
-resource "aws_dynamodb_table" "terraform_locks" {
-  name         = local.lock_table_name
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "LockID"
-
-  attribute {
-    name = "LockID"
-    type = "S"
-  }
-
-  lifecycle {
-    prevent_destroy = true
-  }
-}
+# No DynamoDB lock table — Terraform >= 1.10's native S3 locking
+# (`use_lockfile = true` in each environment's backend block) uses
+# conditional writes against this same bucket instead.

@@ -1,7 +1,7 @@
 variable "project_name" {
   description = "Short project identifier, used as a prefix for backend resource names."
   type        = string
-  default     = "project9-ai-native-infra"
+  default     = "aws-ai-native-infra"
 }
 
 variable "aws_region" {

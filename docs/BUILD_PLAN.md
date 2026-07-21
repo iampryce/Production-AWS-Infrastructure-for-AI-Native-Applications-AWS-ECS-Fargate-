@@ -15,8 +15,11 @@ assumes its non-negotiable decisions are already loaded into context.
   Infrastructure for AI-Native Applications"), one-line description,
   stack summary, links to `docs/ARCHITECTURE.md` and `docs/BUILD_PLAN.md`.
   No company references anywhere.
-- Set up the Terraform S3 backend + DynamoDB lock table as its own
-  bootstrap module, applied once, separately from everything else.
+- Set up the Terraform S3 backend as its own bootstrap module (state
+  bucket, versioned + encrypted), applied once, separately from
+  everything else. State locking uses Terraform's native S3 locking
+  (`use_lockfile = true` in each environment's backend block, Terraform
+  >= 1.10) — no DynamoDB table needed.
 - Output: empty-but-structured repo, committed.
 
 ### Phase 1 — Networking module (multi-AZ from the start)
