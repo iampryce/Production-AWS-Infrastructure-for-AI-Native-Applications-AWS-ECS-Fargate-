@@ -10,3 +10,8 @@ fck_nat_ha = false
 # Cost-optimized, non-prod choice: single-AZ RDS. Prod's terraform.tfvars
 # sets multi_az = true (synchronous standby + automatic failover).
 multi_az = false
+
+# Cost-optimized, non-prod choice: single Redis node. Prod's
+# terraform.tfvars sets automatic_failover_enabled = true (primary +
+# replica across AZs).
+automatic_failover_enabled = false

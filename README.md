@@ -215,8 +215,13 @@ for RDS's KMS/Secrets-Manager-managed-password flow) — all found and
 fixed through the pipeline itself, not by falling back to a local apply.
 Network + RDS are now fully deployed via `terraform-dev.yml`.
 
-### Phase 3 — Redis module ⬜
-ElastiCache replication group, automatic failover variable. `ADR-004`.
+### Phase 3 — Redis module ✅
+ElastiCache Redis 7.1 (verified live), `automatic_failover_enabled`
+variable (no default, dev = false), AUTH token generated + stored in its
+own Secrets Manager secret (no AWS-managed equivalent to RDS's feature, so
+this module builds it), at-rest + in-transit encryption hardcoded on.
+`ADR-004`. Plan reviewed (6 to add, 0 to change/destroy) — apply goes
+through the pipeline, not a local terminal.
 
 ### Phase 4 — ECS Fargate module ⬜
 Cluster, two services (FastAPI, Celery), placeholder image reference only,

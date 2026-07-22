@@ -23,3 +23,8 @@ variable "multi_az" {
   description = "No default — must come from this environment's terraform.tfvars. false in dev/staging, true in prod."
   type        = bool
 }
+
+variable "automatic_failover_enabled" {
+  description = "No default — must come from this environment's terraform.tfvars. false in dev/staging (single Redis node), true in prod (primary + replica, automatic failover)."
+  type        = bool
+}

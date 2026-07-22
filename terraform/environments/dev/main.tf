@@ -39,3 +39,23 @@ module "rds" {
     ManagedBy   = "terraform"
   }
 }
+
+module "redis" {
+  source = "../../modules/redis"
+
+  project_name = var.project_name
+  environment  = "dev"
+
+  data_subnet_ids   = values(module.network.data_subnet_ids)
+  security_group_id = module.network.data_security_group_id
+
+  # From this environment's terraform.tfvars — false in dev, no default in
+  # the module itself.
+  automatic_failover_enabled = var.automatic_failover_enabled
+
+  tags = {
+    Environment = "dev"
+    Project     = var.project_name
+    ManagedBy   = "terraform"
+  }
+}

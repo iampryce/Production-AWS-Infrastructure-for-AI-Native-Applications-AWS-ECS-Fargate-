@@ -110,8 +110,8 @@ resource "aws_iam_role" "github_apply" {
   assume_role_policy = data.aws_iam_policy_document.github_apply_trust.json
 }
 
-# Scoped to what Phases 0-2 actually need (networking + RDS). Expand this
-# policy phase by phase as new modules land (ElastiCache, ECS/ECR,
+# Scoped to what Phases 0-3 actually need (networking + RDS + ElastiCache).
+# Expand this policy phase by phase as new modules land (ECS/ECR,
 # CloudFront, Route 53, ACM, Lambda, SNS) rather than granting broad
 # service access upfront for things that don't exist yet.
 data "aws_iam_policy_document" "github_apply_permissions" {
@@ -127,6 +127,14 @@ data "aws_iam_policy_document" "github_apply_permissions" {
     sid = "RDS"
     actions = [
       "rds:*",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "ElastiCache"
+    actions = [
+      "elasticache:*",
     ]
     resources = ["*"]
   }
@@ -149,13 +157,17 @@ data "aws_iam_policy_document" "github_apply_permissions" {
     resources = ["*"]
   }
 
-  # manage_master_user_password = true has RDS create and own this
-  # secret, but the calling principal (this role) still needs permission
-  # for RDS to do that creation on its behalf - not just read it
-  # afterward. Discovered via a real AccessDenied on the first live apply:
-  # "The user isn't authorized to create a secret in AWS Secrets Manager."
+  # Covers two distinct secrets: RDS's manage_master_user_password = true
+  # (RDS creates and owns the secret, but the calling principal still
+  # needs permission for RDS to do that creation on its behalf - not just
+  # read it afterward, discovered via a real AccessDenied on the first
+  # live apply: "The user isn't authorized to create a secret in AWS
+  # Secrets Manager") and the redis module's own Secrets Manager secret
+  # for its AUTH token (ElastiCache has no equivalent managed-password
+  # feature, so the module creates the secret itself and needs the same
+  # write actions).
   statement {
-    sid = "SecretsManagerForRdsManagedSecret"
+    sid = "SecretsManagerForManagedSecrets"
     actions = [
       "secretsmanager:CreateSecret",
       "secretsmanager:DeleteSecret",
