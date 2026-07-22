@@ -31,6 +31,16 @@ resource "random_password" "auth_token" {
 resource "aws_secretsmanager_secret" "redis_auth_token" {
   name = "${var.project_name}-${var.environment}-redis-auth-token"
 
+  # Default deletion behavior schedules a 30-day recovery window instead
+  # of deleting immediately - blocks recreating a secret under the same
+  # name until it lapses (hit this for real: an earlier failed apply left
+  # this exact secret name "scheduled for deletion", and the next apply
+  # couldn't create a replacement until it was manually restored and
+  # force-deleted). This is an auto-generated token with nothing to
+  # recover, and this project is meant to be built and torn down quickly
+  # - immediate deletion is the right default here.
+  recovery_window_in_days = 0
+
   tags = var.tags
 }
 
