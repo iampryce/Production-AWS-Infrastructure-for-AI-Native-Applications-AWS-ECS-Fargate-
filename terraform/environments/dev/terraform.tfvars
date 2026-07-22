@@ -25,3 +25,10 @@ domain_name = "rivetrecords.online"
 # The actual credential (CLOUDFLARE_API_TOKEN) lives in GitHub Actions
 # secrets, never here.
 cloudflare_account_id = "fa52652a0406755e9d0ae9af7971fc44"
+
+# Phase 9. Neither of these is a secret - just where and which Grafana
+# Cloud stack to send telemetry to. The actual credential
+# (GRAFANA_CLOUD_API_KEY) lives in GitHub Actions secrets, never here -
+# same as slack_webhook_url, which has no entry here at all.
+grafana_cloud_otlp_endpoint = "https://otlp-gateway-prod-us-west-0.grafana.net/otlp"
+grafana_cloud_instance_id   = "1732592"

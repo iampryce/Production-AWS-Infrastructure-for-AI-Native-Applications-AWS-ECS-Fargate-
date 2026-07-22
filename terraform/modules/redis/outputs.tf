@@ -11,6 +11,11 @@ output "port" {
   value = var.port
 }
 
+output "replication_group_id" {
+  description = "CloudWatch's AWS/ElastiCache ReplicationGroupId dimension on this."
+  value       = aws_elasticache_replication_group.this.id
+}
+
 output "auth_token_secret_arn" {
   description = "Secrets Manager secret ARN holding the Redis AUTH token. Reference this from ECS task definitions (Phase 4) via a Secrets Manager data source, not a plain env var."
   value       = aws_secretsmanager_secret.redis_auth_token.arn

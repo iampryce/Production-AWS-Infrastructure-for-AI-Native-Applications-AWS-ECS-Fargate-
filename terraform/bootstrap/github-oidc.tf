@@ -195,6 +195,20 @@ data "aws_iam_policy_document" "github_apply_permissions" {
     resources = ["*"]
   }
 
+  # Phase 9's monitoring module: CloudWatch alarms on ECS/ALB/RDS/Redis
+  # metrics, an SNS topic, and a Lambda function subscribed to it that
+  # posts to Slack. logs:* is already granted above (ECSPhase4) and covers
+  # the Lambda's own CloudWatch Log group too.
+  statement {
+    sid = "MonitoringPhase9"
+    actions = [
+      "cloudwatch:*",
+      "sns:*",
+      "lambda:*",
+    ]
+    resources = ["*"]
+  }
+
   # New assets bucket from the cloudfront module - separate statement from
   # TerraformStateBucket below since that one is scoped to exactly one
   # bucket ARN and shouldn't grow implicitly as more project buckets show

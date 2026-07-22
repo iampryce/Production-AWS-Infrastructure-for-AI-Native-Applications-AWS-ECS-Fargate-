@@ -22,3 +22,13 @@ output "fastapi_service_name" {
 output "celery_service_name" {
   value = aws_ecs_service.celery.name
 }
+
+output "alb_arn_suffix" {
+  description = "CloudWatch's AWS/ApplicationELB metrics key on this, not the full ARN."
+  value       = aws_lb.this.arn_suffix
+}
+
+output "fastapi_target_group_arn_suffix" {
+  description = "CloudWatch's AWS/ApplicationELB target group metrics key on this, not the full ARN."
+  value       = aws_lb_target_group.fastapi.arn_suffix
+}

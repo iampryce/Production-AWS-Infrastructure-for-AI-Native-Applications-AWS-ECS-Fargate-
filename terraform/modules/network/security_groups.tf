@@ -96,11 +96,25 @@ resource "aws_vpc_security_group_ingress_rule" "data_postgres_from_app" {
 
 resource "aws_vpc_security_group_ingress_rule" "data_redis_from_app" {
   security_group_id            = aws_security_group.data.id
-  description                  = "Redis from the app tier only"
+  description                  = "Redis from the app tier"
   from_port                    = var.redis_port
   to_port                      = var.redis_port
   ip_protocol                  = "tcp"
   referenced_security_group_id = aws_security_group.app.id
+}
+
+# The one deliberate, documented exception to item 3's "not even ops" rule
+# (Phase 9/ADR-010): Flower has to reach the same Redis broker Celery uses
+# to monitor its queues - there's no way around that without breaking what
+# Flower is for. Scoped as narrowly as possible: Redis port only, from the
+# ops SG only. Postgres stays untouched - App tier only, no exception.
+resource "aws_vpc_security_group_ingress_rule" "data_redis_from_ops" {
+  security_group_id            = aws_security_group.data.id
+  description                  = "Redis from the ops tier - Flower only, see ADR-010"
+  from_port                    = var.redis_port
+  to_port                      = var.redis_port
+  ip_protocol                  = "tcp"
+  referenced_security_group_id = aws_security_group.ops.id
 }
 
 resource "aws_vpc_security_group_egress_rule" "data_to_anywhere" {

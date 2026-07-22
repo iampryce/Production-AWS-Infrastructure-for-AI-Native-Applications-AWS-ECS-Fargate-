@@ -128,6 +128,44 @@ module "flagsmith" {
   }
 }
 
+module "monitoring" {
+  source = "../../modules/monitoring"
+
+  project_name = var.project_name
+  environment  = "dev"
+
+  ops_subnet_id         = module.network.ops_subnet_id
+  ops_security_group_id = module.network.ops_security_group_id
+
+  ecs_cluster_name                = module.ecs.cluster_name
+  fastapi_service_name            = module.ecs.fastapi_service_name
+  celery_service_name             = module.ecs.celery_service_name
+  alb_arn_suffix                  = module.ecs.alb_arn_suffix
+  fastapi_target_group_arn_suffix = module.ecs.fastapi_target_group_arn_suffix
+
+  rds_db_instance_id = module.rds.db_instance_id
+
+  redis_replication_group_id     = module.redis.replication_group_id
+  redis_primary_endpoint_address = module.redis.primary_endpoint_address
+  redis_port                     = module.redis.port
+  redis_auth_token_secret_arn    = module.redis.auth_token_secret_arn
+
+  # slack_webhook_url and grafana_cloud_api_key have no corresponding
+  # entry in terraform.tfvars on purpose - they're sensitive and come only
+  # from TF_VAR_-prefixed env vars in CI (terraform-dev.yml), never a
+  # committed file.
+  slack_webhook_url           = var.slack_webhook_url
+  grafana_cloud_otlp_endpoint = var.grafana_cloud_otlp_endpoint
+  grafana_cloud_instance_id   = var.grafana_cloud_instance_id
+  grafana_cloud_api_key       = var.grafana_cloud_api_key
+
+  tags = {
+    Environment = "dev"
+    Project     = var.project_name
+    ManagedBy   = "terraform"
+  }
+}
+
 module "cloudfront" {
   source = "../../modules/cloudfront"
 
