@@ -23,6 +23,18 @@ resource "aws_instance" "this" {
   # rides on, not a public route.
   associate_public_ip_address = false
 
+  # AL2023's default root volume (8GB) isn't enough - the all-in-one
+  # Flagsmith image bundles a full Django backend and a built React
+  # frontend across ~19 layers, several GB total, and ran the default disk
+  # out of space mid-pull on the first real boot ("no space left on
+  # device"). 30GB gives real headroom for the image plus its own
+  # container layer cache. See ADR-009.
+  root_block_device {
+    volume_size = 30
+    volume_type = "gp3"
+    encrypted   = true
+  }
+
   user_data = templatefile("${path.module}/templates/user_data.sh.tpl", {
     db_secret_arn                = aws_db_instance.flagsmith.master_user_secret[0].secret_arn
     django_secret_key_secret_arn = aws_secretsmanager_secret.django_secret_key.arn
