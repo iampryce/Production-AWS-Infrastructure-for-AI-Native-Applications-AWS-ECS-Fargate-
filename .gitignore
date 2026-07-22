@@ -40,3 +40,9 @@ npm-debug.log*
 Thumbs.db
 .vscode/
 .idea/
+
+# Local-only docs - README + docs/screenshots/ are the only docs pushed to
+# GitHub. These stay on disk for local reference, just not tracked.
+docs/ADRs/
+docs/Runbooks/
+docs/ARCHITECTURE.md

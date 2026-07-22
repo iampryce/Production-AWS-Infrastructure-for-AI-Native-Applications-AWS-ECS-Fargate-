@@ -110,6 +110,16 @@ variable "flagsmith_port" {
   default = 8000
 }
 
+variable "flower_port" {
+  type    = number
+  default = 5555
+}
+
+variable "jaeger_ui_port" {
+  type    = number
+  default = 16686
+}
+
 variable "tags" {
   type    = map(string)
   default = {}

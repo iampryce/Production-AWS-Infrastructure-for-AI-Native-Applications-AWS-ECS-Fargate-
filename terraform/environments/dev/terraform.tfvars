@@ -26,6 +26,10 @@ domain_name = "rivetrecords.online"
 # secrets, never here.
 cloudflare_account_id = "fa52652a0406755e9d0ae9af7971fc44"
 
+# Gate on the admin subdomain (Jaeger/Flower/Flagsmith) - Cloudflare
+# Access sends a one-time PIN to each address here, nothing else gets in.
+cloudflare_access_allowed_emails = ["tobilead@gmail.com"]
+
 # Phase 9. Neither of these is a secret - just where and which Grafana
 # Cloud stack to send telemetry to. The actual credential
 # (GRAFANA_CLOUD_API_KEY) lives in GitHub Actions secrets, never here -

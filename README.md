@@ -131,7 +131,7 @@ chain.
 | S3 | Stores generated message assets |
 | CloudFront + WAF | Edge delivery and attack-surface protection for asset reads |
 | Flagsmith | Self-hosted feature flag evaluation |
-| Cloudflare Tunnel | Outbound-only admin/internal access - no public bastion |
+| Cloudflare Tunnel | Outbound-only admin/internal access - no public bastion. Proxies Jaeger/Flower/Flagsmith to a delegated admin subdomain, gated by Cloudflare Access |
 | OTel Collector + Jaeger | App-level traces/metrics -> Grafana Cloud + self-hosted Jaeger |
 | Flower | Standalone Celery queue/worker visibility - no external forwarding |
 | CloudWatch -> SNS -> Lambda -> Slack | The one infra alerting/paging channel |
@@ -158,7 +158,11 @@ nothing there needs to survive an AZ outage.
 **Cloudflare Tunnel instead of a bastion host.** The ops subnet has zero
 internet-facing inbound rules; Cloudflare Tunnel's outbound-only connection is the sole
 path to internal tooling. The tunnel itself is Terraform-owned end to end via the
-Cloudflare provider, not a value pasted in once from the dashboard.
+Cloudflare provider, not a value pasted in once from the dashboard. Admin UIs
+(Jaeger, Flower, Flagsmith) sit behind a subdomain delegated to Cloudflare
+specifically so the tunnel can route to them by hostname and Cloudflare Access can
+gate them - one-time PIN to an explicit email allow-list, since none of the three
+tools has its own login.
 
 **Self-hosted Flagsmith**, not a SaaS feature-flag vendor - its own EC2 instance and
 its own small RDS instance, reachable only internally.
@@ -337,13 +341,6 @@ curl https://rivetrecords.online/assets/generations/<id>.json
 ### Phase 12 — Frontend
 
 ![Frontend generation flow](docs/screenshots/phase-12-frontend-ui.png)
-
-## Docs
-
-- [Architecture](docs/ARCHITECTURE.md)
-- [ADRs](docs/ADRs/)
-- [Runbooks](docs/Runbooks/)
-- [Screenshots](docs/screenshots/)
 
 ## Author
 

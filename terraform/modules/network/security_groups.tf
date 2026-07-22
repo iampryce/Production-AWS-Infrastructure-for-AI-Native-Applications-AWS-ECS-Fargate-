@@ -143,6 +143,38 @@ resource "aws_vpc_security_group_ingress_rule" "ops_otel_from_app" {
   referenced_security_group_id = aws_security_group.app.id
 }
 
+# Self-referencing, port-scoped rules only - the Cloudflare Tunnel
+# instance needs to reach three specific UIs on their sibling ops-subnet
+# instances to proxy admin traffic to them. Deliberately three narrow
+# rules instead of one "allow all within the SG" rule, so a compromised
+# ops instance still can't reach arbitrary ports on its neighbors.
+resource "aws_vpc_security_group_ingress_rule" "ops_self_flagsmith" {
+  security_group_id            = aws_security_group.ops.id
+  description                  = "Flagsmith admin UI, from the Cloudflare Tunnel instance"
+  from_port                    = var.flagsmith_port
+  to_port                      = var.flagsmith_port
+  ip_protocol                  = "tcp"
+  referenced_security_group_id = aws_security_group.ops.id
+}
+
+resource "aws_vpc_security_group_ingress_rule" "ops_self_flower" {
+  security_group_id            = aws_security_group.ops.id
+  description                  = "Flower UI, from the Cloudflare Tunnel instance"
+  from_port                    = var.flower_port
+  to_port                      = var.flower_port
+  ip_protocol                  = "tcp"
+  referenced_security_group_id = aws_security_group.ops.id
+}
+
+resource "aws_vpc_security_group_ingress_rule" "ops_self_jaeger" {
+  security_group_id            = aws_security_group.ops.id
+  description                  = "Jaeger UI, from the Cloudflare Tunnel instance"
+  from_port                    = var.jaeger_ui_port
+  to_port                      = var.jaeger_ui_port
+  ip_protocol                  = "tcp"
+  referenced_security_group_id = aws_security_group.ops.id
+}
+
 resource "aws_vpc_security_group_egress_rule" "ops_to_anywhere" {
   security_group_id = aws_security_group.ops.id
   description       = "Outbound only - the Cloudflare Tunnel connection is initiated from here, never inbound"

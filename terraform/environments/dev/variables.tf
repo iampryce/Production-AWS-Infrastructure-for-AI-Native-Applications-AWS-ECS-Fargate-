@@ -35,8 +35,13 @@ variable "domain_name" {
 }
 
 variable "cloudflare_account_id" {
-  description = "Phase 7. Cloudflare account ID that owns the ops tunnel - not a secret, see terraform/modules/cloudflare-tunnel/variables.tf for where to find it."
+  description = "Cloudflare account ID that owns the ops tunnel - not a secret, see terraform/modules/cloudflare-tunnel/variables.tf for where to find it."
   type        = string
+}
+
+variable "cloudflare_access_allowed_emails" {
+  description = "Emails allowed through Cloudflare Access (one-time PIN) on the admin subdomain (Jaeger/Flower/Flagsmith). Not a secret - an allow-list, not a credential."
+  type        = list(string)
 }
 
 # No default, sensitive, and deliberately absent from terraform.tfvars -
