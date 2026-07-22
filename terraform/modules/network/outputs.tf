@@ -25,6 +25,10 @@ output "ops_subnet_id" {
   value = aws_subnet.ops.id
 }
 
+output "ops_subnet_cidr" {
+  value = aws_subnet.ops.cidr_block
+}
+
 output "alb_security_group_id" {
   value = aws_security_group.alb.id
 }

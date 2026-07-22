@@ -14,12 +14,11 @@ output "tunnel_id" {
   value = cloudflare_zero_trust_tunnel_cloudflared.this.id
 }
 
-output "admin_hostnames" {
-  description = "Jaeger/Flower/Flagsmith admin UIs, reachable once Cloudflare Access grants a one-time PIN to an allowed email."
-  value       = local.admin_hostnames
-}
-
-output "admin_zone_name_servers" {
-  description = "Confirm these show as NS at the admin subdomain in Route 53 (aws_route53_record.admin_ns_delegation) once the zone activates."
-  value       = cloudflare_zone.admin.name_servers
+output "admin_endpoints" {
+  description = "Jaeger/Flower/Flagsmith admin UIs - reachable directly at these addresses once connected via the Cloudflare WARP client and granted a one-time PIN (cloudflare_zero_trust_access_application.warp_enrollment). No public hostname involved."
+  value = {
+    flagsmith = "http://${var.flagsmith_private_ip}:${var.flagsmith_port}"
+    flower    = "http://${var.flower_private_ip}:${var.flower_port}"
+    jaeger    = "http://${var.jaeger_private_ip}:${var.jaeger_port}"
+  }
 }

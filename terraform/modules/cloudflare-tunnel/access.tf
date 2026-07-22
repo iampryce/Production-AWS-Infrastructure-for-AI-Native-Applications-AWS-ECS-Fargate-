@@ -1,14 +1,12 @@
-# The tunnel/DNS config above only gets traffic to the right private IP -
-# none of Jaeger, Flower, or Flagsmith's admin UI has its own login, so
-# without this, the hostname alone would be enough to open any of them.
-# One wildcard Access application covers all three admin hostnames with a
-# single inline policy, rather than three separate applications that
-# could drift out of sync with each other.
-resource "cloudflare_zero_trust_access_application" "admin" {
+# Gates WARP enrollment itself, not a hostname - there's no public URL
+# for Jaeger/Flower/Flagsmith to gate (see tunnel.tf). Without this, the
+# private network route above would let *any* WARP-connected device
+# reach the ops subnet; this policy is what limits who's allowed to
+# enroll a device into this Zero Trust org at all.
+resource "cloudflare_zero_trust_access_application" "warp_enrollment" {
   account_id       = var.cloudflare_account_id
-  name             = "${var.project_name}-${var.environment}-admin-tools"
-  domain           = "*.${local.admin_domain}"
-  type             = "self_hosted"
+  name             = "${var.project_name}-${var.environment}-warp-enrollment"
+  type             = "warp"
   session_duration = "24h"
 
   policies = [

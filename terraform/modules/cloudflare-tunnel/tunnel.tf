@@ -4,15 +4,11 @@
 # (set in CI, never committed) the same way the aws provider reads AWS
 # credentials - no token value appears in any .tf file or tfvars.
 
-# config_src = "cloudflare": ingress rules are owned by the
-# cloudflare_zero_trust_tunnel_cloudflared_config resource below and live
-# in Terraform state, not in a hand-maintained file on the instance. A
-# routing change (adding another admin hostname, repointing a service)
-# is then a normal plan/apply diff instead of requiring the EC2 instance
-# to reboot and re-read a local file - still fully Terraform-owned end to
-# end via the Cloudflare provider, just via the API-managed path rather
-# than a local config.yml. tunnel_secret must be >=32 bytes,
-# base64-encoded - random_id's b64_std output satisfies that directly.
+# Locally-managed tunnel (config_src = "local"): admin access rides on the
+# tunnel's private network routing below, not hostname-based ingress
+# rules, so there's no remote ingress config for Cloudflare to own here.
+# tunnel_secret must be >=32 bytes, base64-encoded - random_id's b64_std
+# output satisfies that directly.
 resource "random_id" "tunnel_secret" {
   byte_length = 32
 }
@@ -20,7 +16,7 @@ resource "random_id" "tunnel_secret" {
 resource "cloudflare_zero_trust_tunnel_cloudflared" "this" {
   account_id    = var.cloudflare_account_id
   name          = "${var.project_name}-${var.environment}-ops-tunnel"
-  config_src    = "cloudflare"
+  config_src    = "local"
   tunnel_secret = random_id.tunnel_secret.b64_std
 }
 
@@ -31,32 +27,18 @@ data "cloudflare_zero_trust_tunnel_cloudflared_token" "this" {
   tunnel_id  = cloudflare_zero_trust_tunnel_cloudflared.this.id
 }
 
-# Ingress rules for the three ops-subnet admin UIs, proxied through the
-# tunnel to their private IPs. Each entry needs its own hostname match;
-# the final catch-all returns a plain 404 for anything that doesn't match
-# one of the named hostnames, rather than silently proxying to whatever
-# service happens to be listed first.
-resource "cloudflare_zero_trust_tunnel_cloudflared_config" "this" {
+# Private network routing instead of a public hostname: this Cloudflare
+# account's plan doesn't support delegating a subdomain as its own zone
+# (confirmed live - the dashboard's "Add a site" flow rejects anything
+# but a root domain), so there's no DNS path to a public hostname for
+# Jaeger/Flower/Flagsmith. Advertising the ops subnet as a private
+# network route means anyone connected via the Cloudflare WARP client -
+# gated by the Access application below - can reach those private IPs
+# directly, the same way they'd reach any other VPC-internal address.
+# No zone, no DNS record, no public URL involved anywhere.
+resource "cloudflare_zero_trust_tunnel_cloudflared_route" "ops_subnet" {
   account_id = var.cloudflare_account_id
   tunnel_id  = cloudflare_zero_trust_tunnel_cloudflared.this.id
-
-  config = {
-    ingress = [
-      {
-        hostname = "flagsmith.${local.admin_domain}"
-        service  = "http://${var.flagsmith_private_ip}:${var.flagsmith_port}"
-      },
-      {
-        hostname = "flower.${local.admin_domain}"
-        service  = "http://${var.flower_private_ip}:${var.flower_port}"
-      },
-      {
-        hostname = "jaeger.${local.admin_domain}"
-        service  = "http://${var.jaeger_private_ip}:${var.jaeger_port}"
-      },
-      {
-        service = "http_status:404"
-      },
-    ]
-  }
+  network    = var.ops_subnet_cidr
+  comment    = "Ops subnet - Jaeger/Flower/Flagsmith admin UIs, WARP + Access gated"
 }

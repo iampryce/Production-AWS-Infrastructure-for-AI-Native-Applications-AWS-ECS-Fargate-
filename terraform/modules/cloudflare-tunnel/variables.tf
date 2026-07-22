@@ -32,26 +32,15 @@ variable "instance_type" {
   default = "t3.micro"
 }
 
-# --- Admin subdomain (Jaeger / Flower / Flagsmith, proxied through the tunnel) ---
+# --- Admin access (Jaeger / Flower / Flagsmith, via WARP private network routing) ---
 
-variable "root_domain" {
-  description = "module.cloudfront.domain_name's zone (e.g. \"rivetrecords.online\"). Route 53 stays authoritative for this zone; only the admin subdomain below gets delegated to Cloudflare."
+variable "ops_subnet_cidr" {
+  description = "module.network.ops_subnet_cidr. Advertised as a private network route through the tunnel so WARP-connected, Access-allowed devices can reach it directly - no public hostname involved."
   type        = string
-}
-
-variable "route53_zone_id" {
-  description = "module.cloudfront.zone_id. Needed to add the NS delegation record for the admin subdomain in the same zone CloudFront/ACM already use."
-  type        = string
-}
-
-variable "admin_subdomain" {
-  description = "Delegated to Cloudflare via NS records so the tunnel's public-hostname routing and Access policies can apply to it. Combines with root_domain, e.g. \"admin\" + \"rivetrecords.online\" = admin.rivetrecords.online."
-  type        = string
-  default     = "admin"
 }
 
 variable "access_allowed_emails" {
-  description = "Email addresses allowed through Cloudflare Access (one-time PIN) on every admin hostname. No default - must come from this environment's terraform.tfvars."
+  description = "Email addresses allowed to enroll a device in WARP (one-time PIN). No default - must come from this environment's terraform.tfvars."
   type        = list(string)
 }
 

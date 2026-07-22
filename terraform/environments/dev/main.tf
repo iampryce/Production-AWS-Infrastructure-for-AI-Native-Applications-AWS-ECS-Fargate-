@@ -115,18 +115,17 @@ module "cloudflare_tunnel" {
   environment  = "dev"
 
   ops_subnet_id         = module.network.ops_subnet_id
+  ops_subnet_cidr       = module.network.ops_subnet_cidr
   ops_security_group_id = module.network.ops_security_group_id
   cloudflare_account_id = var.cloudflare_account_id
 
-  # Admin subdomain (Jaeger/Flower/Flagsmith UIs, proxied through the
-  # tunnel) — delegated off the same Route 53 zone CloudFront/ACM already
-  # use, not a separate domain.
-  root_domain            = var.domain_name
-  route53_zone_id        = module.cloudfront.zone_id
-  access_allowed_emails  = var.cloudflare_access_allowed_emails
-  flagsmith_private_ip   = module.flagsmith.private_ip
-  flower_private_ip      = module.monitoring.flower_private_ip
-  jaeger_private_ip      = module.monitoring.otel_collector_private_ip
+  # Admin access (Jaeger/Flower/Flagsmith UIs) rides on the tunnel's
+  # private network route to the ops subnet, gated by WARP + Access - no
+  # public hostname or separate Cloudflare zone involved.
+  access_allowed_emails = var.cloudflare_access_allowed_emails
+  flagsmith_private_ip  = module.flagsmith.private_ip
+  flower_private_ip     = module.monitoring.flower_private_ip
+  jaeger_private_ip     = module.monitoring.otel_collector_private_ip
 
   tags = {
     Environment = "dev"
