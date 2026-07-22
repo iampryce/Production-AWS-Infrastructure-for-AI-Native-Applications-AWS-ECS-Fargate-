@@ -40,6 +40,11 @@ jobs:
 
       - name: Terraform Plan
         working-directory: terraform/environments/dev
+        env:
+          # Cloudflare provider - reads this env var itself, same pattern
+          # as AWS credentials above. Scoped token: Account > Cloudflare
+          # Tunnel > Edit, nothing broader.
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: terraform plan -input=false -no-color
 
   apply:
@@ -71,10 +76,16 @@ jobs:
 
       - name: Terraform Plan
         working-directory: terraform/environments/dev
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: terraform plan -input=false -no-color -out=tfplan
 
       - name: Terraform Apply
         working-directory: terraform/environments/dev
+        env:
+          # Needed again here - a saved plan file doesn't carry provider
+          # credentials with it, apply re-authenticates independently.
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         # Applies the exact plan just generated in this job, not a fresh
         # plan re-evaluated at apply time.
         run: terraform apply -input=false tfplan

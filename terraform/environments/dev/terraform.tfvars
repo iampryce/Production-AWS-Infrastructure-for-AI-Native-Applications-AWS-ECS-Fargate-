@@ -20,3 +20,8 @@ automatic_failover_enabled = false
 # creates one. Namecheap's nameservers need to be updated to point at it
 # before ACM validation (step 2) can succeed.
 domain_name = "rivetrecords.online"
+
+# Phase 7. Not a secret - it's an account identifier, not a credential.
+# The actual credential (CLOUDFLARE_API_TOKEN) lives in GitHub Actions
+# secrets, never here.
+cloudflare_account_id = "fa52652a0406755e9d0ae9af7971fc44"
