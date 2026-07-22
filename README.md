@@ -30,11 +30,6 @@ observability stack (OpenTelemetry, Grafana Cloud, Jaeger, self-hosted Flower on
 application side; CloudWatch → SNS → Lambda → Slack as the single infra alerting
 channel).
 
-Every layer - networking, compute, async task processing, data resilience, release
-strategy, and observability - is built as real, working infrastructure rather than a
-proof of concept. Terraform provisions the shape of the AWS architecture; the platform
-running on top of it, submitting a real prompt and getting a real AI-generated result
-back through the full pipeline, is the point.
 
 
 
@@ -62,12 +57,6 @@ RDS Postgres 16 (pgvector, Alembic)                            OpenAI API
                                                                          v
                                                               CloudFront (read path, via OAC)
 ```
-
-### Multi-AZ network layout
-
-VPC `10.0.0.0/16`, two availability zones, 7 subnets total - see
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full CIDR table and security group
-chain.
 
 ### CI/CD - decoupled deploy
 
@@ -131,59 +120,13 @@ chain.
 | S3 | Stores generated message assets |
 | CloudFront + WAF | Edge delivery and attack-surface protection for asset reads |
 | Flagsmith | Self-hosted feature flag evaluation |
-| Cloudflare Tunnel | Outbound-only admin/internal access - no public bastion. Proxies Jaeger/Flower/Flagsmith to a delegated admin subdomain, gated by Cloudflare Access |
+| Cloudflare Tunnel | Outbound-only admin/internal access - no public bastion. Advertises the ops subnet as a private network route; Jaeger/Flower/Flagsmith reachable via WARP, gated by Cloudflare Access |
 | OTel Collector + Jaeger | App-level traces/metrics -> Grafana Cloud + self-hosted Jaeger |
 | Flower | Standalone Celery queue/worker visibility - no external forwarding |
 | CloudWatch -> SNS -> Lambda -> Slack | The one infra alerting/paging channel |
 | Next.js frontend | Submit a prompt, poll status, see the generated result |
 
-## Platform Engineering Decisions
-
-**ECS Fargate, not EKS.** Two separate ECS services (FastAPI, Celery) on one cluster -
-never combined into a single task definition, so each can scale and deploy
-independently.
-
-**Terraform owns infra shape; GitHub Actions owns the release.** Terraform never
-diffs a container image tag. On every deploy, GitHub Actions pushes an immutable
-`:<git-sha>` tag (audit/rollback trail) *and* repoints the moving `:prod` tag, then
-calls `aws ecs update-service --force-new-deployment`. Rollback is re-pointing `:prod`
-at a prior SHA and re-running the deploy step - a real code path
-(`workflow_dispatch` + `rollback_sha`), not just a documented procedure.
-
-**Multi-AZ, but scoped by environment.** RDS Multi-AZ and an ElastiCache replication
-group with automatic failover are prod-only, following the same cost/resilience logic
-as fck-nat (dev/staging) vs. real NAT Gateway (prod). Non-prod runs single-AZ because
-nothing there needs to survive an AZ outage.
-
-**Cloudflare Tunnel instead of a bastion host.** The ops subnet has zero
-internet-facing inbound rules; Cloudflare Tunnel's outbound-only connection is the sole
-path to internal tooling. The tunnel itself is Terraform-owned end to end via the
-Cloudflare provider, not a value pasted in once from the dashboard. Admin UIs
-(Jaeger, Flower, Flagsmith) sit behind `admin.rivetrecords.online`, a subdomain
-delegated to Cloudflare via NS records so the tunnel can route to them by
-hostname (`jaeger.`, `flower.`, `flagsmith.admin.rivetrecords.online`) and
-Cloudflare Access can gate them - one-time PIN to an explicit email allow-list,
-since none of the three tools has its own login.
-
-**Self-hosted Flagsmith**, not a SaaS feature-flag vendor - its own EC2 instance and
-its own small RDS instance, reachable only internally.
-
-**Two independent observability pipelines, not one fan-out.** App-level: OTel
-collector -> Grafana Cloud + self-hosted Jaeger (one EC2, two containers), with Flower
-as a standalone self-hosted leaf node. Infra-level: CloudWatch -> SNS -> Lambda ->
-Slack, deliberately the *only* alerting channel - avoids alert fatigue from multiple
-tools paging independently.
-
-**Secrets always via AWS Secrets Manager.** Either Terraform-generated
-(`random_password`, for values with no external origin) or flowed in via
-`TF_VAR_`-prefixed GitHub Actions secrets for values that originate outside AWS
-entirely (a Cloudflare tunnel token, a Slack webhook, an OpenAI API key) - never
-hardcoded, never a plain env var, never committed.
-
 ## Live Validation
-
-Real commands run against the deployed `dev` stack (`494472951824`, `us-east-1`), not
-local or mocked, with a matching screenshot per phase.
 
 ### Phase 0 — S3 backend bootstrap
 
@@ -194,18 +137,7 @@ local or mocked, with a matching screenshot per phase.
 ```powershell
 aws ec2 describe-vpcs --filters "Name=tag:Project,Values=aws-ai-native-infra" --region us-east-1
 ```
-```
-CIDR: 10.0.0.0/16   State: available   VpcId: vpc-08253a85fd057cc36
 
-7 subnets, 2 AZs:
-  aws-ai-native-infra-dev-public-us-east-1a   10.0.0.0/24    us-east-1a
-  aws-ai-native-infra-dev-public-us-east-1b   10.0.1.0/24    us-east-1b
-  aws-ai-native-infra-dev-app-us-east-1a      10.0.10.0/24   us-east-1a
-  aws-ai-native-infra-dev-app-us-east-1b      10.0.11.0/24   us-east-1b
-  aws-ai-native-infra-dev-data-us-east-1a     10.0.20.0/24   us-east-1a
-  aws-ai-native-infra-dev-data-us-east-1b     10.0.21.0/24   us-east-1b
-  aws-ai-native-infra-dev-ops                 10.0.30.0/24   us-east-1a
-```
 
 ![VPC and subnets](docs/screenshots/phase-1-networking-plan.png)
 
