@@ -24,8 +24,9 @@ two things together: `num_cache_clusters = 2` (a primary and a replica,
 one per AZ) and `multi_az_enabled = true` (AWS actually requires
 `automatic_failover_enabled` as a prerequisite for `multi_az_enabled` —
 they're not independent toggles). When `false`, it's a single node. Same
-reasoning as ADR-001 and ADR-002: pay for redundancy on the path that
-matters, not by default everywhere.
+cost-vs-resilience logic used for the NAT gateway split and RDS's
+multi-AZ setting: pay for redundancy on the path that matters, not by
+default everywhere.
 
 ### Redis 7.1, verified live
 
@@ -45,7 +46,7 @@ characters restricted to what ElastiCache's AUTH token actually allows —
 it rejects `/`, `"`, and `@`), stored in its own Secrets Manager secret.
 The token never appears in a variable, a `.tfvars` file, or a plain
 environment variable — only in Terraform state (which lives encrypted in
-the private S3 backend) and in Secrets Manager, where Phase 4's ECS task
+the private S3 backend) and in Secrets Manager, where the ECS task
 definitions will reference it directly, the same way they'll reference
 RDS's secret.
 
@@ -57,8 +58,9 @@ requires it as a prerequisite.
 
 ### Lessons already carried over from the RDS/network rollout
 
-Two bugs from Phase 1/2's first real apply directly shaped this module
-before it ever touched AWS: every string here that reaches an AWS API
+Two bugs from the RDS and network modules' first real apply directly
+shaped this module before it ever touched AWS: every string here that
+reaches an AWS API
 (the replication group's `description`, secret names) is plain ASCII —
 no em dashes — after `aws_security_group.ops` broke on exactly that. And
 the CI apply role's IAM policy got `elasticache:*` and an expanded
@@ -69,7 +71,7 @@ module, not discovered the hard way a second time.
 
 Proactively adding `elasticache:*` and expanding Secrets Manager wasn't
 enough — the first real apply still hit two new errors, both new failure
-modes not seen in Phase 1/2:
+modes not seen during the RDS and network modules' rollout:
 
 - `CreateCacheSubnetGroup`/`CreateCacheParameterGroup` both failed with
   `ServiceLinkedRoleNotFoundFault`. This AWS account had never used
@@ -94,7 +96,7 @@ modes not seen in Phase 1/2:
   same as every bootstrap change.
 - `terraform plan` reviewed and clean (6 to add: subnet group, parameter
   group, the random password, the Secrets Manager secret + version, and
-  the replication group itself) — apply goes through the pipeline like
-  everything else since ADR-003, not a local terminal.
+  the replication group itself) — apply goes through the CI/CD pipeline
+  like everything else, not a local terminal.
 - Switching any environment's failover/Multi-AZ posture later is a
   one-line `terraform.tfvars` change, not a module change.

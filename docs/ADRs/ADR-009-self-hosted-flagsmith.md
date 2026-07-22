@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-CLAUDE.md item 15 calls for self-hosted Flagsmith (feature flags) on its
+The plan calls for self-hosted Flagsmith (feature flags) on its
 own EC2 instance plus its own small RDS instance, in the ops subnet,
 reachable internally by FastAPI/Celery and never exposed publicly. The one
 real design question was how literally to take "in the ops subnet" for the
@@ -17,12 +17,12 @@ RDS half specifically.
 ### The RDS instance lives in the data subnets, not literally the ops subnet
 
 RDS requires a DB subnet group spanning **at least two subnets in two
-different AZs** — the ops subnet is deliberately single-AZ (ADR-001), so a
+different AZs** — the ops subnet is deliberately single-AZ, so a
 standalone subnet group built only from it isn't possible. Flagsmith's
 Postgres instance uses the existing `data-a`/`data-b` subnets instead,
 matching where every other database in this project already lives. What
 actually satisfies "in the ops subnet" is the **Flagsmith EC2 instance
-itself** — that's the literal Flagsmith service CLAUDE.md is describing,
+itself** — that's the literal Flagsmith service being described,
 and it's genuinely there with no public IP, no key pair, SSM for direct
 troubleshooting, same as every other ops-subnet instance in this project.
 
@@ -31,7 +31,7 @@ the DB in the data subnets, unguarded, would put it one misconfigured rule
 away from being reachable by the main app's data tier too. So it gets its
 own **dedicated security group** (`flagsmith-db-sg`), not the shared `data`
 SG — ingress restricted to Postgres from the **ops SG only**. The shared
-`data` SG's "App tier only" rule (CLAUDE.md item 3) stays untouched and
+`data` SG's "App tier only" rule stays untouched and
 unambiguous; nothing about Flagsmith's database is reachable from FastAPI
 or Celery directly, which is correct, since they're not supposed to talk to
 it at all — only the Flagsmith EC2 instance itself does. Confirmed this
@@ -40,10 +40,10 @@ literal subnet plan) rather than assuming and finding out later.
 
 ### Reachability: App → Flagsmith's HTTP API, not App → Flagsmith's database
 
-The network module already had this half-anticipated from Phase 1 —
+The network module already had this half-anticipated from earlier work —
 `ops_flagsmith_from_app` (App SG → Ops SG on `flagsmith_port`, default
 `8000`) and a `flagsmith_port` variable both existed, unused, before this
-phase. FastAPI/Celery reach Flagsmith's HTTP API over that existing rule;
+module was built. FastAPI/Celery reach Flagsmith's HTTP API over that existing rule;
 nothing new was needed on the network module's side.
 
 ### All-in-one Docker image, not separate containers
@@ -54,7 +54,7 @@ the Django API and its built React frontend — one container, `docker run
 containers or writing a Compose file for a single EC2 instance. `dnf
 install docker` (AL2023's own package, not Docker's upstream repo) plus
 `systemctl enable --now docker` in `user_data`, mirroring the Cloudflare
-Tunnel module's boot-script shape from Phase 7.
+Tunnel module's boot-script shape from the module that built it.
 
 ### Two secrets, two different lifecycles
 
@@ -80,14 +80,14 @@ not worth doubling a second database's cost to close.
 
 ## Three real bugs on the first live attempts
 
-This phase needed three apply cycles before Flagsmith actually came up —
-worth recording honestly, same as ADR-004/ADR-007/ADR-008's own first-apply
+This module needed three apply cycles before Flagsmith actually came up —
+worth recording honestly, same as the other modules' own first-apply
 findings:
 
 1. **SG description charset, again.** `aws_security_group.flagsmith_db`'s
    description used an apostrophe ("Flagsmith's own Postgres instance..."),
    and AWS's SG description field only allows a fixed ASCII set with no
-   apostrophe — the exact same class of bug ADR-004 already hit once (an em
+   apostrophe — the exact same class of bug hit once before (an em
    dash that time, on `aws_security_group.ops`). `plan` can't catch this;
    it's an apply-time-only AWS API validation. Worth actually internalizing
    this time: **no punctuation beyond `. _-:/()#,@[]+=&;{}!$*` in anything
@@ -124,13 +124,13 @@ findings:
   Deeper confirmation (the Flagsmith web UI actually responding, DB
   migrations completing inside the container) isn't available yet: SSM
   still hasn't registered on any ops-subnet instance in this project
-  (Flagsmith or the Phase 7 Cloudflare Tunnel instance), and the tunnel has
+  (Flagsmith or the Cloudflare Tunnel instance), and the tunnel has
   no ingress route configured yet to proxy into the VPC from outside.
-  Follow-up, not a blocker for this phase's stated scope: either get SSM
+  Follow-up, not a blocker for this module's stated scope: either get SSM
   registration working, or wire an actual Cloudflare Tunnel ingress route
-  to Flagsmith (and admin access generally) — the latter is really Phase 7
-  follow-up work more than Phase 8's.
+  to Flagsmith (and admin access generally) — the latter is really
+  Cloudflare Tunnel follow-up work more than Flagsmith's.
 - Flagsmith's DB and app tier are not yet wired into FastAPI/Celery's
-  actual application code (Phase 10/11) — this phase only stands up the
+  actual application code (that comes later) — this module only stands up the
   infrastructure and confirms it boots; using Flagsmith from the app is
   later work.

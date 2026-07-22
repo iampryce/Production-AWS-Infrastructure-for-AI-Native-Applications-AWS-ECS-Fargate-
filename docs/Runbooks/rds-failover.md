@@ -9,7 +9,7 @@
   spike right before, or an AWS-initiated failover event coincides with
   the symptom.
 - **The response here is completely different depending on
-  `multi_az`, and that's the whole point of the variable** (ADR-002):
+  `multi_az`, and that's the whole point of the variable**:
 
   - **`multi_az = true` (prod's setting)**: AWS handles this
     automatically — a synchronous standby in `data-b` is promoted,
@@ -19,12 +19,12 @@
   - **`multi_az = false` (dev's actual current setting,
     `terraform.tfvars`)**: there is no standby. A primary-AZ problem is
     real, unmitigated downtime until AWS restores the instance or a
-    restore-from-backup completes. This is the documented cost tradeoff
-    from ADR-002, not a gap to "fix" reactively mid-incident — the fix
-    (flipping `multi_az = true`) is a one-line, pre-planned change, not
-    something to reach for during a live outage. If dev downtime here is
-    becoming a genuine problem, that's a follow-up conversation about
-    changing the default, not an in-the-moment escalation.
+    restore-from-backup completes. This is a documented cost tradeoff,
+    not a gap to "fix" reactively mid-incident — the fix (flipping
+    `multi_az = true`) is a one-line, pre-planned change, not something
+    to reach for during a live outage. If dev downtime here is becoming a
+    genuine problem, that's a follow-up conversation about changing the
+    default, not an in-the-moment escalation.
 
 ## Diagnosis
 
@@ -68,8 +68,8 @@
 
 - If dev hits this enough to be disruptive, that's the signal to revisit
   the `multi_az = false` default for dev specifically (a `terraform.tfvars`
-  change, already designed for exactly this - ADR-002), not to route
-  around it with ad hoc workarounds each time.
-- Confirm `backup_retention_period` is actually long enough for how this
-  project is being used day to day - the default is short (cost-driven,
-  same reasoning as everything else non-prod in this project).
+  change, already designed for exactly this), not to route around it with
+  ad hoc workarounds each time.
+- Confirm `backup_retention_period` is actually long enough for how the
+  environment is used day to day - the default is short (cost-driven,
+  same reasoning as everything else non-prod here).

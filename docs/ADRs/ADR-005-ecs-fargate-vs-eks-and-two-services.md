@@ -49,9 +49,9 @@ Bundling them into one task definition would mean:
 
 Two ECS services on the *same cluster* keeps the operational surface
 (one cluster, one set of capacity providers) while keeping the workloads'
-scaling and failure domains independent. This is the one non-negotiable
-item in `CLAUDE.md` this ADR most directly implements: FastAPI and Celery
-never share a service or task definition.
+scaling and failure domains independent. FastAPI and Celery never sharing
+a service or task definition is a hard architectural rule here, not just
+a convenience.
 
 ### Autoscaling: CPU-based target tracking, not ALB request count
 
@@ -75,8 +75,9 @@ app port for FastAPI, so it passes a real ALB health check; `sleep
 infinity` for Celery, so the task stays alive) — not because a "fake"
 image is good enough long-term, but because a task definition needs
 *some* pullable image to prove the cluster, services, target group, and
-autoscaling policies actually work end to end, and Phase 5's build
-pipeline plus Phases 10/11's application code don't exist yet. Swapping
+autoscaling policies actually work end to end, since the image
+build/deploy pipeline and the real FastAPI/Celery application code don't
+exist yet at this point. Swapping
 each service's image variable to its own ECR repository's `:prod` tag
 later is a deliberate one-time Terraform change, not a per-deploy one —
 after that, GitHub Actions rolling a new image never touches Terraform
@@ -84,10 +85,10 @@ again.
 
 ### HTTP only for now, no HTTPS listener yet
 
-The ALB gets a plain HTTP (port 80) listener in this phase. An ACM
-certificate doesn't exist until Phase 6 (Edge/CDN/WAF), which is also
-where CloudFront gets placed in front of this same ALB. Adding the HTTPS
-listener is Phase 6's job, not this one's.
+The ALB gets a plain HTTP (port 80) listener for now. An ACM certificate
+doesn't exist yet — that comes in a later module covering the edge/CDN/WAF
+layer, which is also where CloudFront gets placed in front of this same
+ALB. Adding the HTTPS listener is that later module's job, not this one's.
 
 ## Consequences
 
@@ -98,9 +99,9 @@ listener is Phase 6's job, not this one's.
   needed before (`AWSServiceRoleForECS`,
   `AWSServiceRoleForApplicationAutoScaling_ECSService`) had to be added to
   `terraform/bootstrap` proactively — checked for before the first apply
-  this time, having learned that lesson from ElastiCache in Phase 3
-  (`AWSServiceRoleForElasticLoadBalancing` already existed in this account
-  from prior use, so nothing needed there).
+  this time, having learned that lesson from the ElastiCache module
+  earlier on (`AWSServiceRoleForElasticLoadBalancing` already existed in
+  this account from prior use, so nothing needed there).
 - The apply role's IAM policy grew again in the same change that
   introduces this module (`ecs:*`, `ecr:*`, `elasticloadbalancing:*`,
   `application-autoscaling:*`, `logs:*`) rather than discovered through a

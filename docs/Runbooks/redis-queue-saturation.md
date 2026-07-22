@@ -24,11 +24,10 @@ One or more of:
    problem (too many operations), a memory problem (too many/too-large
    keys accumulating), or a connection-storm problem.
 
-2. **Flower** (self-hosted, Phase 9, ops subnet — no public route yet,
-   see ADR-010's "Consequences": reach it via SSM on the Flower instance
-   itself, or once a tunnel ingress route exists, through that) — shows
-   actual queue depth (`celery` queue length), active/reserved task
-   counts per worker, and whether tasks are failing and retrying
+2. **Flower** (self-hosted, ops subnet — reach it via SSM on the Flower
+   instance itself, or through the tunnel once an ingress route exists)
+   — shows actual queue depth (`celery` queue length), active/reserved
+   task counts per worker, and whether tasks are failing and retrying
    (`autoretry_for` in `workers/app/tasks.py` means OpenAI rate limits
    specifically will show as repeated retries here, not just a stuck
    queue).
@@ -44,11 +43,11 @@ One or more of:
 
 - **If it's genuine queue depth** (worker throughput can't keep up):
   bump `celery_desired_count` in `terraform/environments/dev/terraform.tfvars`
-  (ECS module already exposes this) and go through the normal PR flow —
-  more workers drain the queue faster. This is safe to do without asking
-  first if the alarm is actively firing and the fix is exactly "more of
-  what's already there," per this project's incident-response norms;
-  document what you did afterward either way.
+  (the ECS module already exposes this) and go through the normal PR
+  flow — more workers drain the queue faster. This is safe to do without
+  asking first if the alarm is actively firing and the fix is exactly
+  "more of what's already there"; document what you did afterward either
+  way.
 - **If it's OpenAI rate limits masquerading as queue pressure**: this is
   provider-side, not an infra problem — the existing `retry_backoff` +
   `retry_jitter` already handles it. Confirm the retries are eventually
@@ -63,8 +62,8 @@ One or more of:
   with explicit sign-off.
 - **Dev-specific reminder**: `automatic_failover_enabled = false` here
   (single node, `terraform.tfvars`) — a Redis-level problem in dev has no
-  automatic mitigation the way prod's replica would provide. That's the
-  documented cost/resilience tradeoff (ADR-004), not an oversight.
+  automatic mitigation the way a replica in prod would provide. That's a
+  documented cost/resilience tradeoff, not an oversight.
 
 ## Follow-up
 

@@ -6,12 +6,13 @@ Accepted
 
 ## Context
 
-This is the ADR the whole project has been building toward, and the
-non-negotiable item CLAUDE.md is most explicit about: Terraform manages
-infrastructure *shape* — the ECS cluster, task definitions, services — and
-must never own or diff a container image tag. GitHub Actions owns the
-*release* — building an image, pushing it, and rolling it out. Getting the
-boundary between those two exactly right is the point of this ADR.
+This is the decision the whole deploy architecture has been building
+toward, and the clearest non-negotiable rule in this setup: Terraform
+manages infrastructure *shape* — the ECS cluster, task definitions,
+services — and must never own or diff a container image tag. GitHub
+Actions owns the *release* — building an image, pushing it, and rolling
+it out. Getting the boundary between those two exactly right is the point
+of this ADR.
 
 ## Decision
 
@@ -82,22 +83,24 @@ carrying any history.
 
 ### A dedicated IAM identity for this workflow, not the apply role
 
-Same reasoning as the plan/apply split in ADR-003: this workflow's entire
-job is "push an image, restart a service," so its role
-(`aws-ai-native-infra-github-actions-deploy`) is scoped to exactly that —
-`ecr:*` push actions and `ecs:UpdateService`/`DescribeServices`, both
-resource-scoped to this project's own repos/services, nothing else. It
-does not carry the apply role's `ec2:*`/`rds:*`/`elasticache:*`/state-
-bucket access, because it never needs any of it. Same trust-condition
-pattern as the apply role too (`environment:dev` + `ref:refs/heads/main`,
-learned the hard way in ADR-003) — tied to the same GitHub Environment
-approval gate as infra applies.
+This mirrors the same least-privilege reasoning used for the Terraform
+plan/apply split: this workflow's entire job is "push an image, restart a
+service," so its role (`aws-ai-native-infra-github-actions-deploy`) is
+scoped to exactly that — `ecr:*` push actions and
+`ecs:UpdateService`/`DescribeServices`, both resource-scoped to this
+project's own repos/services, nothing else. It does not carry the apply
+role's `ec2:*`/`rds:*`/`elasticache:*`/state-bucket access, because it
+never needs any of it. It also uses the same trust-condition pattern as
+the apply role (`environment:dev` + `ref:refs/heads/main`, a pattern
+refined after an earlier hard-learned lesson about scoping OIDC trust
+conditions too loosely) — tied to the same GitHub Environment approval
+gate as infra applies.
 
 ### Closing the loop: `use_placeholder_images`
 
-Phases 10/11 (the real FastAPI and Celery code) don't exist yet, so this
-phase needed something real to build and push to prove the pipeline
-actually works — not just plan cleanly. `backend/Dockerfile` and
+The real FastAPI and Celery application code doesn't exist yet at this
+point, so this module needed something real to build and push to prove
+the pipeline actually works — not just plan cleanly. `backend/Dockerfile` and
 `workers/Dockerfile` are minimal placeholders (the same
 `python:3.12-slim` + `http.server`/`sleep infinity` behavior already
 sitting in the ECS module's Docker-Hub-pulled placeholder, just now

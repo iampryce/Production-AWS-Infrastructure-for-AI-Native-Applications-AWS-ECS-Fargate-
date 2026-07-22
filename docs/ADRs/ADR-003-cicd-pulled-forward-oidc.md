@@ -6,15 +6,15 @@ Accepted
 
 ## Context
 
-Up through Phase 2, every `terraform plan` had been run from a local
-terminal, with `apply` left for me to run by hand after reviewing the
-plan. That's fine for a couple of modules, but it doesn't scale, and more
-importantly it isn't the story this project is supposed to tell — the
-original plan (Phase 5) already called for a proper Terraform GitOps pair
-(`plan` on PR, `apply` on merge to `main`), it just hadn't been built yet.
-Once real infra started existing, it stopped making sense to keep applying
-locally for three more phases and only then switch — so the CI/CD piece
-got pulled forward to right after Phase 2, ahead of the original schedule.
+Early on, every `terraform plan` had been run from a local terminal, with
+`apply` left for me to run by hand after reviewing the plan. That's fine
+for a couple of modules, but it doesn't scale, and more importantly it
+isn't the story this project is supposed to tell — a proper Terraform
+GitOps pair (`plan` on PR, `apply` on merge to `main`) was always the
+intended end state, it just hadn't been built yet. Once real infra started
+existing, it stopped making sense to keep applying locally for several
+more modules and only then switch — so the CI/CD piece got pulled forward
+much earlier than originally planned.
 
 ## Decision
 
@@ -55,7 +55,7 @@ to this project's own naming prefix (`aws-ai-native-infra-*` roles/instance
 profiles only — it cannot touch IAM entities outside that prefix), and
 this project's own state bucket. ElastiCache, ECS, CloudFront, Route 53,
 ACM, Lambda, and SNS permissions get added when those modules actually
-land in Phases 3+, not granted speculatively now.
+land, not granted speculatively now.
 
 **One workflow file per environment, not dynamic discovery.** An earlier
 version of this had a single plan/apply pair that auto-discovered every
@@ -140,7 +140,7 @@ aren't obvious from the workflow YAML alone.
 ## Addendum: the plan role can't refresh secret content, on purpose
 
 Discovered on the first PR that actually got its `plan` job reviewed
-carefully end to end (Phase 7): `terraform plan`'s default state refresh
+carefully end to end: `terraform plan`'s default state refresh
 tries to re-read every `aws_secretsmanager_secret_version` resource's
 actual value (RDS's, Redis's, and later the Cloudflare tunnel's), which
 needs `secretsmanager:GetSecretValue` — a permission `ReadOnlyAccess`

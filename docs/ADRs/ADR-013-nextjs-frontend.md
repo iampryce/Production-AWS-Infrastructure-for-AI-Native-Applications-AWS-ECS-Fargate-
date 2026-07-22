@@ -6,11 +6,11 @@ Accepted
 
 ## Context
 
-BUILD_PLAN's Phase 12 is deliberately small: submit a request, poll/see
-the result, no polish. Unlike every phase before it, there's no Terraform
-bullet attached - confirmed before starting rather than assumed, and the
-scope stayed exactly that: app code, verified locally, no new hosting
-infrastructure.
+This frontend's scope is deliberately small: submit a request, poll/see
+the result, no polish. Unlike the infrastructure work before it, there's
+no Terraform bullet attached - confirmed before starting rather than
+assumed, and the scope stayed exactly that: app code, verified locally,
+no new hosting infrastructure.
 
 ## Decision
 
@@ -26,8 +26,8 @@ rather than building scaffolding for pages that don't exist yet.
 `setInterval` re-fetching `GET /generations/{id}` every 2 seconds until
 `completed`/`failed`, not WebSockets or server-sent events. The backend
 has neither, and adding either would be new backend scope smuggled into
-a frontend phase - polling is the honest match for what Phase 10 already
-built.
+a frontend change - polling is the honest match for what the backend API
+already built.
 
 ### Best-effort inline result, always-working fallback link
 
@@ -53,9 +53,9 @@ Next 14 was actually built and tested against, not just "whatever's
 newest this week."
 
 **FastAPI never needed CORS before, and it showed the moment a browser
-was the client instead of curl.** Phase 10/11 verification was
-exclusively `curl` - which doesn't enforce CORS, so this gap sat
-invisible through two full phases of "verified live" testing. The instant
+was the client instead of curl.** Backend and worker verification up to
+this point was exclusively `curl` - which doesn't enforce CORS, so this
+gap sat invisible through two full rounds of "verified live" testing. The instant
 a real browser on `localhost:3000` tried to call the API on a different
 origin, it would have been silently blocked. Added `CORSMiddleware`,
 permissive (`allow_origins=["*"]`) deliberately, not by default - this API
@@ -66,14 +66,15 @@ generation's UUID.
 **Local MinIO needed a public-read bucket policy that the real S3 bucket
 must never have.** Confirmed in an actual browser: `AccessDenied` on the
 result URL, screenshotted directly from MinIO's raw S3 API. Real S3
-(Phase 6) stays fully private - `block_public_acls` and friends - and is
+stays fully private - `block_public_acls` and friends - and is
 only ever readable through CloudFront's OAC, a server-side grant that a
 browser's anonymous `fetch()` never has to satisfy itself. Locally there's
 no CloudFront standing in front of MinIO, so the browser hits MinIO's raw
 API directly and needs the bucket itself to allow anonymous reads. Fixed
 inside the same `S3_ENDPOINT_URL`-gated local-only branch that already
-creates the bucket (Phase 11) - this policy call never executes against
-the real bucket, which stays exactly as private as Phase 6 built it.
+creates the bucket - this policy call never executes against
+the real bucket, which stays exactly as private as the real infrastructure
+built it.
 
 ## Consequences
 
@@ -84,18 +85,18 @@ the real bucket, which stays exactly as private as Phase 6 built it.
   an unsynced scratch location and copying `package-lock.json` back for
   commit - the actual source files were always written directly into the
   repo, unaffected either way. Worth remembering for any future `npm
-  install` in this repo, not just this phase.
+  install` in this repo, not just this frontend work.
 - Two known, unpatched CVEs remain on `next@14.2.35` (the latest
   available 14.x release) - the real fixes only land in Next 15/16.
-  Deliberately not upgraded past the pinned major version CLAUDE.md's
-  stack section calls for; none of the affected surfaces
+  Deliberately not upgraded past the pinned major version this project's
+  stack is built on; none of the affected surfaces
   (`next/image`, middleware, i18n) are used by this two-page app anyway.
   Worth a second look if this project's Next.js version ever gets
-  revisited on its own terms, not silently bundled into a later phase.
+  revisited on its own terms, not silently bundled into unrelated work.
 - Verified live in an actual browser, not just curl - a real prompt went
   in, a real status transition and a real generated message came back,
   confirmed on screen.
 - No hosting infrastructure exists for this yet, on purpose - a natural
   next addition (S3+CloudFront static export, or another approach) is a
-  future decision with its own tradeoffs, not something this phase's
+  future decision with its own tradeoffs, not something this
   "app code only" scope quietly forecloses.

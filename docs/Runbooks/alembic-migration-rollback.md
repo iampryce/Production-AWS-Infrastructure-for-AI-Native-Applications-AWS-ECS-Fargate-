@@ -34,8 +34,8 @@
 
 ## Mitigation
 
-There's no bastion (by design, CLAUDE.md) and ECS Exec isn't enabled on
-these services, so you can't just shell into a running container. The
+There's no bastion host in this environment and ECS Exec isn't enabled
+on these services, so you can't just shell into a running container. The
 practical path is a **one-off Fargate task** using the same task
 definition, with the command overridden to run Alembic directly instead
 of the normal `alembic upgrade head && uvicorn` entrypoint:
@@ -64,9 +64,8 @@ Then either:
   services may have already observed the partially-applied schema.
 
 Once the schema is in a known-good state, redeploy normally (push a
-corrected commit — don't hand-edit anything on the running task; this
-project's Alembic-only rule, CLAUDE.md item 5, applies to fixing this too,
-not just the original change).
+corrected commit — don't hand-edit anything on the running task; schema
+changes only ever go through Alembic, including the fix for this).
 
 ## Follow-up
 
@@ -74,7 +73,7 @@ not just the original change).
   `deployment_circuit_breaker` on the FastAPI service (auto-rollback to
   the last working task definition on repeated failure) rather than
   relying on someone noticing the stuck deployment manually.
-- Consider a dedicated migration-runner step in `image-build-deploy.yml`
-  (run `alembic upgrade head` as its own task before the service
-  redeploys, so a broken migration fails the *deploy step* loudly instead
-  of failing silently inside every new task's boot).
+- Consider a dedicated migration-runner step in the deploy workflow (run
+  `alembic upgrade head` as its own task before the service redeploys,
+  so a broken migration fails the *deploy step* loudly instead of
+  failing silently inside every new task's boot).

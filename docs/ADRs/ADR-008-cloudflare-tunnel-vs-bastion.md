@@ -7,8 +7,8 @@ Accepted
 ## Context
 
 The ops subnet (Cloudflare Tunnel EC2, Flagsmith, OTel collector, Flower)
-has no internet-facing inbound route at all — CLAUDE.md rules this out
-explicitly, and the network module's `ops` security group already has zero
+has no internet-facing inbound route at all — that's a hard rule for this
+subnet, and the network module's `ops` security group already has zero
 ingress rules from `0.0.0.0/0`. Something still has to let a human reach
 that subnet for admin access, without punching a hole in it. Cloudflare
 Tunnel does that: `cloudflared`, running on an EC2 instance inside the
@@ -16,11 +16,11 @@ subnet, makes an *outbound* connection to Cloudflare's edge, and admin
 traffic rides back over that same connection. No listening port, no bastion
 host, no public IP on the instance.
 
-The open question wasn't the tunnel concept — CLAUDE.md already settles
-that — it was two smaller decisions: how the tunnel's connector *token*
+The open question wasn't the tunnel concept — that part was already
+settled — it was two smaller decisions: how the tunnel's connector *token*
 gets into this AWS account, and whether the tunnel needs anything from
 this project's DNS (Route 53, already authoritative for `rivetrecords.online`
-since Phase 6).
+from an earlier module).
 
 ## Decision
 
@@ -29,8 +29,8 @@ since Phase 6).
 The first pass at this module had a human create the tunnel by hand in the
 Cloudflare Zero Trust dashboard and paste the resulting token into Secrets
 Manager via the AWS CLI, with the Terraform module only reading it back via
-a data source — mirroring CLAUDE.md's "secrets always via Terraform data
-sources" line literally. That was reversed on request: traceability mattered
+a data source — mirroring the general "secrets always via Terraform data
+sources" principle literally. That was reversed on request: traceability mattered
 more here than avoiding one more external credential. The `cloudflare`
 Terraform provider now creates the tunnel itself
 (`cloudflare_zero_trust_tunnel_cloudflared`, `config_src = "local"`, a
@@ -81,7 +81,7 @@ gets `AmazonSSMManagedInstanceCore` attached for direct troubleshooting.
 Worth being precise about the split: SSM reaches *this one instance*
 directly for its own maintenance; the tunnel is what replaces a bastion for
 reaching *everything else* in the ops subnet (Flagsmith, the OTel collector,
-Flower) once those land in later phases.
+Flower) once those are added later.
 
 ### DNS: Zero Trust's own team domain, not a Route 53 record
 
@@ -89,7 +89,8 @@ Cloudflare Tunnel's *public hostname* feature (routing something like
 `ops.rivetrecords.online` through the tunnel) requires the domain's zone to
 be Cloudflare-managed — Cloudflare auto-creates the DNS record for a public
 hostname inside its own zone. `rivetrecords.online`'s nameservers are
-already delegated to Route 53 (Phase 6/ADR-007), and a domain can only be
+already delegated to Route 53 (set up when the hosted zone and ACM
+certificate were provisioned), and a domain can only be
 delegated to one DNS provider's nameservers at a time — adding it to
 Cloudflare too would mean moving Namecheap's nameservers away from Route 53,
 breaking the already-live ACM/CloudFront/WAF setup. This project doesn't
@@ -111,40 +112,44 @@ hostname.
   allows (Tunnel Edit only, no Zone access, no DNS access).
 - No apply-role IAM changes were needed — the apply role's existing
   `ec2:*`, project-prefix-scoped IAM statement, and broad Secrets Manager
-  statement (added for RDS/Redis in earlier phases) already cover
+  statement (added for RDS/Redis in earlier modules) already cover
   everything this module creates.
 - `terraform validate` is clean for both the module and `environments/dev`.
 
-### One real bug, on the first PR this phase actually triggered
+### One real bug, on the first PR that touched this module
 
-The `plan` role (`ReadOnlyAccess`, per ADR-003) failed on the very first PR
-that touched `environments/dev` after this phase landed —
+The `plan` role (`ReadOnlyAccess`, scoped deliberately so the read-only
+plan step in CI can never mutate real infrastructure) failed on the very
+first PR that touched `environments/dev` after this module landed —
 `AccessDenied: ... s3:PutObject on ... dev/terraform.tfstate.tflock`.
 Terraform's native S3 state locking (`use_lockfile = true`) writes a
 `.tflock` marker object before it will read state *at all*, for any
 operation — plan included, not just apply. `ReadOnlyAccess` has zero
 `s3:PutObject`/`DeleteObject`, so a pure `terraform plan` couldn't even
 acquire the lock, despite never intending to write real state. Same
-"discovered via a live AccessDenied, not anticipated upfront" pattern as
-ADR-004's `ServiceLinkedRoleNotFoundFault` and ADR-007's IAM growth.
+"discovered via a live AccessDenied, not anticipated upfront" pattern
+seen elsewhere in this project — a missing service-linked role that only
+surfaced on a real ECS apply, and IAM policies that had to grow
+incrementally as each new module's actual API calls became clear.
 
 Fix: a new inline policy on the `plan` role
 (`terraform/bootstrap/github-oidc.tf`,
 `aws_iam_role_policy.github_plan_state_lock`), scoped to exactly
 `s3:PutObject`/`DeleteObject` on `${state_bucket_arn}/*.tflock` — nothing
-broader. This preserves the actual security property ADR-003 cares about
-(the plan role still cannot read-modify-write real `.tfstate` object
-content, only coordinate a lock against it), and generalizes to
+broader. This preserves the actual security property the plan/apply role
+split is meant to protect (the plan role still cannot read-modify-write
+real `.tfstate` object content, only coordinate a lock against it), and
+generalizes to
 staging/prod's future lock files without changes when those environments
 land, since the pattern is `*.tflock`, not `dev/terraform.tfstate.tflock`
 specifically. Applied by hand, same as every bootstrap change — planned
 and reviewed first (1 to add, 0 to change, 0 to destroy), consistent with
 the "show the plan, get explicit confirmation" rule even for the one
 module allowed to skip the CI pipeline.
-- A tunnel created by hand in the dashboard during earlier iteration on this
-  phase, and the Secrets Manager secret it was briefly stored in, were both
-  deleted before this design was finalized — nothing from that manual path
-  persists.
+- A tunnel created by hand in the dashboard during earlier iteration on
+  this module, and the Secrets Manager secret it was briefly stored in,
+  were both deleted before this design was finalized — nothing from that
+  manual path persists.
 
 ### A second real bug: the boot script's own repo URL was wrong
 
@@ -177,6 +182,6 @@ own summary: `1 added, 0 changed, 1 destroyed`.
 
 **Verified live**: the replacement instance came up, installed
 `cloudflared` successfully, and the Zero Trust dashboard shows the tunnel
-as **Healthy**, 1 active replica. Phase 7 is fully working end to end —
-admin access to the ops subnet now goes through the tunnel, with zero
-inbound rules from the internet anywhere in that subnet.
+as **Healthy**, 1 active replica. The tunnel is fully working end to
+end — admin access to the ops subnet now goes through the tunnel, with
+zero inbound rules from the internet anywhere in that subnet.

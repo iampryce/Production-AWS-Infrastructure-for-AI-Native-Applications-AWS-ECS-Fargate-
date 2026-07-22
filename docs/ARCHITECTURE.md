@@ -123,13 +123,11 @@ aws-ai-native-infra/
       image-build-deploy.yml    # decoupled image rollout, SHA + moving tag
   docs/
     ARCHITECTURE.md            # this file
-    BUILD_PLAN.md
     COST_NOTES.md
     architecture-diagram.png   # final draw.io export
     ADRs/
     Runbooks/
   README.md
-  CLAUDE.md
 ```
 
 ## Key architectural decisions (see ADRs for full reasoning)

@@ -49,12 +49,13 @@ recommended replacement for the older Origin Access Identity approach.
 CloudFront terminates TLS at the edge (`viewer_protocol_policy =
 redirect-to-https`); the hop from CloudFront to the ALB origin is
 `origin_protocol_policy = "http-only"`, because the ALB still has no HTTPS
-listener (Phase 4 built HTTP-only, deliberately deferring the listener
-that needs an ACM cert to this phase). Adding an HTTPS listener to the ALB
-using this same certificate is a reasonable next hardening step, but
-CloudFront-to-ALB traffic across AWS's own backbone is a materially
-different threat model than the public internet — acceptable to defer
-rather than block this phase on it.
+listener (the ECS/ALB module built HTTP-only, deliberately deferring the
+listener that needs an ACM cert until this module, once a certificate
+actually existed). Adding an HTTPS listener to the ALB using this same
+certificate is a reasonable next hardening step, but CloudFront-to-ALB
+traffic across AWS's own backbone is a materially different threat model
+than the public internet — acceptable to defer rather than block this
+work on it.
 
 ### WAF: two managed rule groups plus one rate limit, not hand-rolled rules
 
@@ -78,7 +79,7 @@ primary region already happening to be us-east-1.
 `rivetrecords.online` was registered at Namecheap with no Route 53 hosted
 zone in this AWS account yet. Rather than one big apply that includes
 `aws_acm_certificate_validation` (which polls until the certificate is
-issued), this phase was deliberately split in two:
+issued), this work was deliberately split in two:
 
 - **Step 1**: create the Route 53 hosted zone, request the ACM
   certificate (apex + `www`), and create the DNS validation `CNAME`
@@ -101,9 +102,9 @@ issued), this phase was deliberately split in two:
   window.
 
 Splitting it this way meant no CI apply job ever sat blocked on DNS
-propagation time it has no control over — a real constraint of the
-decoupled, pipeline-only apply model this project committed to in ADR-003,
-not something to work around by applying this one phase locally instead.
+propagation time it has no control over — a real constraint of committing
+to a decoupled, pipeline-only apply model, not something to work around
+by applying this step locally instead.
 
 ## Consequences
 
@@ -120,4 +121,4 @@ not something to work around by applying this one phase locally instead.
 - The ALB's HTTP-only origin protocol is a known, stated gap, not an
   oversight — worth mentioning if asked "is this fully hardened," with the
   honest answer being "CloudFront-to-ALB is the one hop still on HTTP, and
-  here's why that was an acceptable phase-6 tradeoff."
+  here's why that was an acceptable tradeoff for this module."

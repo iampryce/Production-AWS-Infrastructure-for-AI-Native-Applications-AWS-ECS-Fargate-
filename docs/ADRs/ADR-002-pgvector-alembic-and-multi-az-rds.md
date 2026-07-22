@@ -62,9 +62,9 @@ actually work, not just the forward path.
 environment's `terraform.tfvars` has to say `true` or `false` explicitly.
 Dev is `false` (a single instance; nothing here needs to survive an AZ
 outage for a one-day demo). Prod will be `true` — a synchronous standby in
-the second AZ with automatic failover. Same reasoning as the NAT split in
-ADR-001: pay for the resilience where an outage actually costs something,
-not everywhere by default.
+the second AZ with automatic failover. Same cost-vs-resilience logic used
+for the NAT gateway split between environments: pay for the resilience
+where an outage actually costs something, not everywhere by default.
 
 ### The master password never exists in Terraform state or config
 
@@ -73,8 +73,8 @@ password itself, storing it in a Secrets Manager secret it owns and
 rotates — I never generate a `random_password`, and there's no plaintext
 credential anywhere in this Terraform config, state file, or `.tfvars`.
 The module outputs `master_user_secret_arn` so the ECS task definitions
-built in Phase 4 can reference it directly from Secrets Manager, never as
-a plain environment variable.
+can reference it directly from Secrets Manager, never as a plain
+environment variable.
 
 ### Cost/teardown defaults for a short-lived environment
 

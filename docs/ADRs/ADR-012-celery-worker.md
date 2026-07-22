@@ -6,12 +6,12 @@ Accepted
 
 ## Context
 
-BUILD_PLAN's Phase 11: consume the queue Phase 10 already proved works,
-call the AI provider, store the result in S3, update job status in
+This worker service: consume the queue the backend API already proved
+works, call the AI provider, store the result in S3, update job status in
 Postgres. Handle rate limits and provider errors with retry/backoff -
-don't crash the worker. This phase is where the `generate_content` task
-name/contract established in Phase 10 (ADR-011) finally gets a real
-implementation on the consuming side.
+don't crash the worker. This is where the `generate_content` task
+name/contract established when the backend API was built finally gets a
+real implementation on the consuming side.
 
 ## Decision
 
@@ -22,7 +22,7 @@ assumed: OpenAI over Gemini/OpenRouter (most common choice, easiest to
 explain), a personalized text message only rather than also generating an
 image (image generation is a real scope and cost addition deserving its
 own explicit decision later, not something to fold in silently), and the
-existing Phase 6 assets bucket rather than a new one (already has
+existing assets bucket rather than a new one (already has
 CloudFront OAC wired up - reusing it is less new surface, not more).
 
 ### Retry only what's actually retryable
@@ -61,7 +61,7 @@ race, but noted here so it isn't forgotten.
 
 **The `assets/` key prefix was missing from the actual S3 write, only
 present in the URL construction.** CloudFront's `/assets/*` cache
-behavior (Phase 6) has no `origin_path` rewrite, so a public URL like
+behavior has no `origin_path` rewrite, so a public URL like
 `<site>/assets/generations/<id>.json` maps directly to S3 key
 `assets/generations/<id>.json` - the worker's `s3.put_object()` call used
 `generations/<id>.json`, one segment short, while the `result_url` string
@@ -80,8 +80,8 @@ deleted rather than left as dead weight.
 
 ## Consequences
 
-- No apply-role IAM changes were needed beyond what Phase 9 already
-  granted (`ec2:*`/IAM/Secrets Manager already covered this).
+- No apply-role IAM changes were needed beyond what was already granted
+  earlier (`ec2:*`/IAM/Secrets Manager already covered this).
 - **Verified live, twice - locally and in real AWS, and re-verified after
   the fix.** Locally: real OpenAI call, real object in a local MinIO
   S3-compatible store, correct DB transition. In AWS, first pass:
@@ -89,12 +89,13 @@ deleted rather than left as dead weight.
   pass: a fresh request through the live ALB produced a `completed`
   status whose `result_url` returns a real HTTP 200 with the actual
   generated message, through the actual CloudFront distribution.
-  Additionally, closed the loop on a request submitted back in Phase 10 -
-  it sat in the queue with no consumer until this worker deployed, then
-  got picked up and processed automatically, no manual intervention.
-- Sentry/LangSmith instrumentation (CLAUDE.md item 11) still isn't wired
-  into this code - real follow-up work, not blocking either backend or
-  worker phase.
+  Additionally, closed the loop on a request submitted earlier through
+  the backend API - it sat in the queue with no consumer until this
+  worker deployed, then got picked up and processed automatically, no
+  manual intervention.
+- Sentry/LangSmith instrumentation still isn't wired
+  into this code - real follow-up work, not blocking either the backend or
+  worker service.
 - Image generation, if ever added, is a distinct future decision with its
-  own cost/scope conversation - not something this phase's "text only"
+  own cost/scope conversation - not something this "text only"
   choice quietly forecloses.
