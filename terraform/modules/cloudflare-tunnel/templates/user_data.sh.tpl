@@ -3,7 +3,7 @@ set -euxo pipefail
 
 dnf install -y awscli
 
-curl -fsSL https://pkg.cloudflare.com/cloudflare-main.repo -o /etc/yum.repos.d/cloudflared.repo
+curl -fsSL https://pkg.cloudflare.com/cloudflared.repo -o /etc/yum.repos.d/cloudflared.repo
 dnf install -y cloudflared
 
 TUNNEL_TOKEN=$(aws secretsmanager get-secret-value \

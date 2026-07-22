@@ -145,3 +145,31 @@ module allowed to skip the CI pipeline.
   phase, and the Secrets Manager secret it was briefly stored in, were both
   deleted before this design was finalized — nothing from that manual path
   persists.
+
+### A second real bug: the boot script's own repo URL was wrong
+
+After the first successful apply (9 resources created, EC2 instance
+running), the tunnel sat at **Inactive / 0 active replicas** in the Zero
+Trust dashboard. `aws ec2 get-console-output` showed why: `curl -fsSL
+https://pkg.cloudflare.com/cloudflare-main.repo -o
+/etc/yum.repos.d/cloudflared.repo` returned a plain 404. The correct path
+is `https://pkg.cloudflare.com/cloudflared.repo` — no `-main` — verified
+live with `curl -o /dev/null -w '%{http_code}'` before changing anything,
+same discipline as every other "verify against the real thing, don't guess
+from memory" moment in this project (the fck-nat AMI owner ID, the Redis
+engine version, and now this). `set -euxo pipefail` meant the script
+aborted at that line — `cloudflared` was never installed, so there was
+nothing running to connect, and SSM's own slow-to-register behavior on
+this same boot made the initial troubleshooting noisier than it needed to
+be (a red herring, not a second bug — SSM agent registration is unrelated
+to this script's failure).
+
+Fixing the template alone doesn't fix the already-running instance —
+`user_data` only executes at first boot, and this module hadn't set
+`user_data_replace_on_change`, so AWS's own default (`false`) means
+Terraform would've recorded the new script in state without ever actually
+re-running it. Set to `true` explicitly, which matches what the boot
+script's own comment already claimed ("if the token ever needs to rotate,
+replace the instance") but hadn't actually been wired up to do. Next
+apply replaces the one EC2 instance; everything else (the tunnel resource,
+its token, the IAM role) is untouched.
