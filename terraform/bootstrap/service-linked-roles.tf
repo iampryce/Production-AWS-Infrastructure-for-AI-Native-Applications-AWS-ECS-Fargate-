@@ -12,3 +12,16 @@
 resource "aws_iam_service_linked_role" "elasticache" {
   aws_service_name = "elasticache.amazonaws.com"
 }
+
+# Checked proactively before the Phase 4 (ECS) apply, learning from the
+# ElastiCache incident above rather than discovering these the same way a
+# second time. This account has used ELB before (AWSServiceRoleForElastic
+# LoadBalancing already existed), but never ECS or ECS's own Application
+# Auto Scaling integration.
+resource "aws_iam_service_linked_role" "ecs" {
+  aws_service_name = "ecs.amazonaws.com"
+}
+
+resource "aws_iam_service_linked_role" "ecs_autoscaling" {
+  aws_service_name = "ecs.application-autoscaling.amazonaws.com"
+}

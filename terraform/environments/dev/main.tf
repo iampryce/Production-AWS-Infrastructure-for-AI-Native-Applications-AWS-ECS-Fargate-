@@ -59,3 +59,31 @@ module "redis" {
     ManagedBy   = "terraform"
   }
 }
+
+module "ecs" {
+  source = "../../modules/ecs"
+
+  project_name = var.project_name
+  environment  = "dev"
+
+  vpc_id                = module.network.vpc_id
+  public_subnet_ids     = values(module.network.public_subnet_ids)
+  app_subnet_ids        = values(module.network.app_subnet_ids)
+  alb_security_group_id = module.network.alb_security_group_id
+  app_security_group_id = module.network.app_security_group_id
+
+  rds_master_user_secret_arn = module.rds.master_user_secret_arn
+  rds_host                   = module.rds.db_address
+  rds_db_name                = module.rds.db_name
+  rds_master_username        = module.rds.master_username
+
+  redis_auth_token_secret_arn    = module.redis.auth_token_secret_arn
+  redis_primary_endpoint_address = module.redis.primary_endpoint_address
+  redis_port                     = module.redis.port
+
+  tags = {
+    Environment = "dev"
+    Project     = var.project_name
+    ManagedBy   = "terraform"
+  }
+}

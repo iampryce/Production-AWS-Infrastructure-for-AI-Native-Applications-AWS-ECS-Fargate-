@@ -139,6 +139,18 @@ data "aws_iam_policy_document" "github_apply_permissions" {
     resources = ["*"]
   }
 
+  statement {
+    sid = "ECSPhase4"
+    actions = [
+      "ecs:*",
+      "ecr:*",
+      "elasticloadbalancing:*",
+      "application-autoscaling:*",
+      "logs:*",
+    ]
+    resources = ["*"]
+  }
+
   # RDS needs the calling principal (this role) to have KMS grant
   # permissions to use a KMS key on its behalf - including the AWS-managed
   # defaults (aws/rds for storage_encrypted, aws/secretsmanager for the

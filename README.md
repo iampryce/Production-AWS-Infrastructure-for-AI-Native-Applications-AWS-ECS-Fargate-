@@ -45,7 +45,8 @@ rather than composed from public registry modules, so each design decision stays
 deliberate and explainable end to end.
 
 ## Architecture
-![Architecture diagram](docs/screenshots/architecture-diagram.png)
+
+![alt text](docs/screenshots/heartstamp-infra-demo.gif)
 ### User flow
 
 ```
@@ -227,9 +228,19 @@ CI/CD pipeline. Three more real bugs surfaced and fixed along the way
 30-day deletion recovery window from an earlier failed attempt) — all
 documented in `ADR-004`.
 
-### Phase 4 — ECS Fargate module ⬜
-Cluster, two services (FastAPI, Celery), placeholder image reference only,
-autoscaling. `ADR-005`.
+### Phase 4 — ECS Fargate module ✅
+Cluster (FARGATE + FARGATE_SPOT), two ECR repos, two task definitions and
+two services (FastAPI behind an ALB on HTTP for now, Celery with no load
+balancer), CPU-based target tracking autoscaling on both. Placeholder
+image (`python:3.12-slim` + a command override) — no real image exists
+until Phases 5/10/11. `ADR-005`. Plan reviewed (24 to add, 0 to
+change/destroy); bootstrap update reviewed (2 to add — `AWSServiceRoleForECS`
+and its Application Auto Scaling counterpart, neither existed in this
+account yet — 1 to change for the apply role's `ecs:*`/`ecr:*`/
+`elasticloadbalancing:*`/`application-autoscaling:*`/`logs:*` permissions).
+One real bug caught locally before it ever reached the pipeline: ALB/target
+group names are capped at 32 characters, and this project's naming scheme
+exceeded it for the target group.
 
 ### Phase 5 — Decoupled deploy pipeline ⬜
 Terraform GitOps pair already done (see above, pulled forward). Remaining:
