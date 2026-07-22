@@ -18,18 +18,17 @@ Built on Amazon ECS Fargate — async task processing, multi-AZ data layer, laye
 ![Grafana](https://img.shields.io/badge/Grafana%20Cloud-F46800?logo=grafana&logoColor=white)
 ![Jaeger](https://img.shields.io/badge/Jaeger-66CFE3?logo=jaeger&logoColor=white)
 
----
-
 ## Project Overview
 
-A production-style AWS platform for an **AI-native, asynchronous content-generation
-system**: a FastAPI service and Celery workers running as two independent Amazon ECS
-Fargate services, generating personalized messages through OpenAI, backed by a
-multi-AZ RDS Postgres (with pgvector for similarity search) and ElastiCache Redis
-data layer, fronted by CloudFront/WAF, and released through a fully decoupled
-Terraform/CI-CD deploy model with a two-pipeline observability stack (OpenTelemetry,
-Grafana Cloud, Jaeger, self-hosted Flower on the application side; CloudWatch → SNS →
-Lambda → Slack as the single infra alerting channel).
+A production-style AWS platform for an **AI-native, asynchronous
+content-generation system**: a FastAPI service and Celery workers running as two
+independent Amazon ECS Fargate services, generating personalized messages
+through OpenAI, backed by a multi-AZ RDS Postgres (with pgvector for
+similarity search) and ElastiCache Redis data layer, fronted by CloudFront/WAF, and
+released through a fully decoupled Terraform/CI-CD deploy model with a two-pipeline
+observability stack (OpenTelemetry, Grafana Cloud, Jaeger, self-hosted Flower on the
+application side; CloudWatch → SNS → Lambda → Slack as the single infra alerting
+channel).
 
 Every layer — networking, compute, async task processing, data resilience, release
 strategy, and observability — is built as real, working infrastructure rather than a
@@ -37,74 +36,31 @@ proof of concept. Terraform provisions the shape of the AWS architecture; the pl
 running on top of it, submitting a real prompt and getting a real AI-generated result
 back through the full pipeline, is the point.
 
-Standalone portfolio project. Not modeled on or affiliated with any specific company.
 
----
-
-## Project Objectives
-
-- Design a multi-AZ VPC (7 subnets across 2 AZs) with a strict security group chain and
-  a zero-inbound ops subnet
-- Run FastAPI and Celery as two independently deployable ECS Fargate services on one
-  cluster — never combined
-- Provision a multi-AZ-capable RDS Postgres 16 + pgvector instance, schema-managed
-  exclusively through Alembic
-- Provision ElastiCache Redis as a replication group, with an AUTH token generated and
-  stored entirely by Terraform
-- Decouple infrastructure shape from application releases: Terraform never owns a
-  container image tag; GitHub Actions owns the SHA-tagged, `:prod`-moving release
-- Front the platform with CloudFront, WAF, Route 53, and a real ACM-issued certificate
-  on a real registered domain
-- Replace a public bastion host entirely with an outbound-only Cloudflare Tunnel
-- Self-host Flagsmith for feature flags, with its own isolated database
-- Build two independent observability pipelines — app-level (OpenTelemetry, Grafana
-  Cloud, self-hosted Jaeger, self-hosted Flower) and infra-level (CloudWatch → SNS →
-  Lambda → Slack) — and keep them from ever fanning into one alerting channel
-- Ship real application code (FastAPI, Celery worker, Next.js frontend) that proves the
-  entire pipeline end to end: a submitted prompt becomes a real OpenAI call, a real S3
-  object, and a real CloudFront-delivered result
-- Validate every phase against live AWS resources, not `terraform plan` output alone
-
----
 
 ## Architecture
 
 ![alt text](docs/screenshots/heartstamp-infra-demo.gif)
 
-![alt text](docs/screenshots/architecture-diagram.png)
-
 ### User flow
 
-```text
+```
 End users
-      │
-      ▼
-   Route 53
-      │
-      ▼
-CloudFront (WAF attached at the edge)
-      │
-      ▼
-     ALB
-      │
-      ▼
-ECS Fargate: FastAPI service
-      │
-      ▼
-ElastiCache Redis queue
-      │
-      ▼
-ECS Fargate: Celery workers
-      │
-      ├──────────────┐
-      ▼              ▼
-RDS Postgres 16   OpenAI API
-(pgvector,             │
- Alembic)              ▼
-                  S3 (generated assets)
-                       │
-                       ▼
-              CloudFront (read path, via OAC)
+   |
+   v
+Route 53 -> CloudFront (WAF attached at the edge) -> ALB
+   |
+   v
+ECS Fargate: FastAPI service  --->  ElastiCache Redis queue  --->  ECS Fargate: Celery workers
+   |                                                                    |
+   v                                                                    v
+RDS Postgres 16 (pgvector, Alembic)                            OpenAI API
+                                                                         |
+                                                                         v
+                                                                  S3 (generated assets)
+                                                                         |
+                                                                         v
+                                                              CloudFront (read path, via OAC)
 ```
 
 ### Multi-AZ network layout
@@ -113,49 +69,26 @@ VPC `10.0.0.0/16`, two availability zones, 7 subnets total — see
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full CIDR table and security group
 chain.
 
----
+### CI/CD — decoupled deploy
 
-## Deployment Workflow
-
-```text
-Developer
-      │
-      ▼
-   Git Push
-      │
-      ▼
-GitHub Repository
-      │
-      ▼
-GitHub Actions (two independent workflows)
-      │
-      ├── terraform-dev.yml
-      │       │
-      │       ├── plan  (pull_request, read-only OIDC role)
-      │       └── apply (push to main, read-write OIDC role)
-      │             │
-      │             ▼
-      │      Infra shape only — never a container image tag
-      │
-      └── image-build-deploy.yml
-              │
-              ├── Build Docker image (backend/, workers/)
-              ├── Push immutable :<git-sha> tag
-              └── Push moving :prod tag
-                    │
-                    ▼
-                Amazon ECR
-                    │
-                    ▼
-          aws ecs update-service
-          --force-new-deployment
-                    │
-                    ▼
-              ECS Fargate
-          (FastAPI + Celery services)
 ```
-
----
+                      GitHub Actions
+                     /              \
+                    /                \
+      Terraform plan/apply      Build Docker image
+      (infra shape only)                |
+                                        v
+                              Push to ECR:
+                              immutable :sha tag
+                              + moving :prod tag
+                                        |
+                                        v
+                          aws ecs update-service
+                          --force-new-deployment
+                                        |
+                                        v
+                                 ECS Fargate
+```
 
 ## Infrastructure Overview
 
@@ -186,8 +119,6 @@ GitHub Actions (two independent workflows)
 - Self-hosted OpenTelemetry collector + Jaeger, Flower (Celery monitoring)
 - CloudWatch alarms -> SNS -> Lambda -> Slack, the one infra alerting channel
 
----
-
 ## Component / Purpose
 
 | Component | Purpose |
@@ -206,404 +137,43 @@ GitHub Actions (two independent workflows)
 | CloudWatch -> SNS -> Lambda -> Slack | The one infra alerting/paging channel |
 | Next.js frontend | Submit a prompt, poll status, see the generated result |
 
----
-
 ## Platform Engineering Decisions
 
-### ECS Fargate, Not EKS
-
-Two separate ECS services — FastAPI and Celery — on one cluster, never combined into a
-single task definition. Each scales and deploys independently, and Fargate removes
-node-level patching/capacity management entirely for a project this size.
-
-### Decoupled Deploy Strategy
-
-Terraform owns infrastructure *shape* only — cluster, task definition skeleton, service
-configuration, autoscaling policy. It never owns or diffs a container image tag. On
-every real deploy, GitHub Actions pushes an immutable `:<git-sha>` tag (the audit and
-rollback trail) *and* repoints the moving `:prod` tag the running task definition
-actually references, then calls `aws ecs update-service --force-new-deployment`.
-Rollback is re-pointing `:prod` at a prior SHA and re-running the deploy step — a real
-`workflow_dispatch` code path, not just a documented procedure.
-
-### Multi-AZ, Scoped by Environment
-
-RDS Multi-AZ and an ElastiCache replication group with automatic failover are prod-only
-settings, following the same cost/resilience logic as fck-nat (dev/staging) vs. a real
-NAT Gateway (prod). Non-prod runs single-AZ because nothing there needs to survive an
-AZ outage — and every one of these toggles is a Terraform variable with no default, so
-flipping an environment to full HA later is a one-line change.
-
-### Cloudflare Tunnel Instead of a Bastion Host
-
-The ops subnet has zero internet-facing inbound rules anywhere. Cloudflare Tunnel's
-outbound-only connection is the sole path to internal tooling. The tunnel itself is
-Terraform-owned end to end via the `cloudflare` provider — created, tracked in state,
-and destroyable like any other resource, not a value pasted in once from a dashboard.
-
-### Self-Hosted Flagsmith
-
-Feature flags run on their own EC2 instance with their own small RDS instance, rather
-than a SaaS vendor — reachable only internally, via a dedicated security group scoped
-to the ops tier.
-
-### Two Independent Observability Pipelines
-
-App-level: an OpenTelemetry collector and a self-hosted Jaeger instance (one EC2, two
-containers) forward traces/metrics to Grafana Cloud, with Flower running as a
-standalone, self-hosted leaf node for Celery visibility. Infra-level: CloudWatch alarms
-→ SNS → Lambda → Slack, deliberately the *only* alerting channel in the whole platform
-— avoiding alert fatigue from multiple tools paging independently was a design goal,
-not an accident.
-
-### Secrets Always via AWS Secrets Manager
-
-Every credential is either Terraform-generated (`random_password`, for values with no
-external origin) or flowed in via a `TF_VAR_`-prefixed GitHub Actions secret for values
-that originate outside AWS entirely — a Cloudflare tunnel token, a Slack webhook, an
-OpenAI API key. Never hardcoded, never a plain environment variable, never committed.
-
----
-
-## Project Execution
-
-### Phase 0 — Repo Scaffolding
-
-**Activities**
-- Directory structure per `docs/ARCHITECTURE.md`
-- Git initialized, `.gitignore` added
-- `README.md`, badges
-- Terraform bootstrap module written (S3 state bucket, native S3 state locking)
-- `terraform plan` reviewed and bootstrap applied by hand — the one deliberate
-  exception to "no local apply," since it creates the state bucket and CI/CD's own
-  IAM roles before either exists
-
-**Validation**
-```powershell
-terraform -chdir=terraform/bootstrap init
-terraform -chdir=terraform/bootstrap plan
-terraform -chdir=terraform/bootstrap apply
-```
-
-![alt text](docs/screenshots/1-S3-backend-boostrap.png)
-
----
-
-### Phase 1 — Networking Module
-
-**Activities**
-- VPC `10.0.0.0/16`, 7 subnets (2 public / 2 app / 2 data / 1 ops)
-- Route tables per tier; NAT via fck-nat (non-prod) or real NAT Gateway per AZ (prod),
-  variable-driven
-- Security group chain: ALB -> App -> Data, Ops with zero internet-facing inbound
-- `docs/ADRs/ADR-001-multi-az-subnet-design.md`
-
-**Validation**
-```powershell
-terraform -chdir=terraform/environments/dev plan
-aws ec2 describe-vpcs --filters "Name=tag:Project,Values=aws-ai-native-infra" --region us-east-1
-aws ec2 describe-subnets --filters "Name=vpc-id,Values=<vpc-id>" --region us-east-1
-```
-
-![alt text](docs/screenshots/phase-1-networking-plan.png)
-
----
-
-### Phase 2 — Database Module
-
-**Activities**
-- RDS Postgres 16 + pgvector, `multi_az` variable (no default, dev = `false`)
-- `manage_master_user_password = true` — RDS-managed Secrets Manager credential, never
-  in Terraform state
-- Alembic set up in `backend/`, migrations for `generation_requests` +
-  `prompt_embedding` (pgvector, HNSW index)
-- `docs/ADRs/ADR-002-pgvector-alembic-and-multi-az-rds.md`
-
-**Validation**
-```powershell
-aws rds describe-db-instances --db-instance-identifier aws-ai-native-infra-dev-pg --region us-east-1 --query 'DBInstances[0].{Status:DBInstanceStatus,MultiAZ:MultiAZ,Engine:EngineVersion}'
-alembic upgrade head
-```
-
-![alt text](docs/screenshots/phase-2-rds-alembic.png)
-
----
-
-### CI/CD Pulled Forward (Between Phase 2 and Phase 3)
-
-**Activities**
-- OIDC federation to GitHub Actions — no AWS access keys anywhere
-- Three project-scoped IAM roles: read-only `plan` (any branch/PR), read-write `apply`
-  (trust condition restricted to `main`), and a separate `deploy` role scoped to
-  exactly ECR push + `ecs:UpdateService`
-- `terraform-dev.yml`: `plan` job on PRs, `apply` job on push to `main`, same file, gated
-  by event type
-- `docs/ADRs/ADR-003-cicd-pulled-forward-oidc.md`
-
-**Validation**
-```powershell
-gh pr create --base main --title "..." --body "..."   # triggers plan job
-git push origin main                                   # triggers apply job
-aws cloudtrail lookup-events --lookup-attributes AttributeKey=EventName,AttributeValue=AssumeRoleWithWebIdentity --region us-east-1
-```
-
-Real bugs found and fixed live: an OIDC trust-condition mismatch (GitHub's actual `sub`
-claim shape differs from the commonly documented format — found via CloudTrail, not
-assumed), an ASCII-only security group description (an em dash broke
-`CreateSecurityGroup`), and two missing IAM permissions for RDS's KMS/Secrets-Manager
-password flow. See ADR-003 for the full incident writeup.
-
-![alt text](docs/screenshots/phase-2b-cicd-pipeline.png)
-
----
-
-### Phase 3 — Redis Module
-
-**Activities**
-- ElastiCache Redis 7.1 (verified live against the account before pinning),
-  `automatic_failover_enabled` variable (no default, dev = `false`)
-- AUTH token generated by Terraform (`random_password`) and stored in its own Secrets
-  Manager secret — no AWS-managed equivalent to RDS's feature
-- At-rest + in-transit encryption hardcoded on, not a variable
-- `docs/ADRs/ADR-004-elasticache-replication-and-sizing.md`
-
-**Validation**
-```powershell
-aws elasticache describe-replication-groups --replication-group-id aws-ai-native-infra-dev-redis --region us-east-1 --query 'ReplicationGroups[0].{Status:Status,NumNodeGroups:NumNodeGroups}'
-```
-
-![alt text](docs/screenshots/phase-3-redis.png)
-
----
-
-### Phase 4 — ECS Fargate Module
-
-**Activities**
-- Cluster (FARGATE + FARGATE_SPOT capacity providers), two ECR repos, two task
-  definitions, two services — FastAPI behind an ALB, Celery with no load balancer
-- CPU-based target-tracking autoscaling on both services
-- Placeholder image (`python:3.12-slim` + a command override) — real app code lands in
-  Phases 10/11
-- `docs/ADRs/ADR-005-ecs-fargate-vs-eks-and-two-services.md`
-
-**Validation**
-```powershell
-aws ecs describe-services --cluster aws-ai-native-infra-dev --services aws-ai-native-infra-dev-fastapi aws-ai-native-infra-dev-celery --region us-east-1
-curl -I http://<alb-dns-name>/
-```
-
-![alt text](docs/screenshots/phase-4-ecs-healthy-target.png)
-
----
-
-### Phase 5 — Decoupled Deploy Pipeline
-
-**Activities**
-- `.github/workflows/image-build-deploy.yml`: builds `backend/Dockerfile` /
-  `workers/Dockerfile`, pushes each image under an immutable `:<sha>` tag and the
-  moving `:prod` tag, then `aws ecs update-service --force-new-deployment`
-- `workflow_dispatch` + `rollback_sha` input — rollback as a real code path (re-point
-  `:prod` at an existing SHA tag, no rebuild), not just a documented procedure
-- `use_placeholder_images` flipped to `false` once the pipeline had pushed something
-  real to `:prod`
-- `docs/ADRs/ADR-006-decoupled-deploy-strategy.md` — the most important ADR in the
-  project
-
-**Validation**
-```powershell
-git push origin main   # backend/** or workers/** touched -> triggers image-build-deploy.yml
-aws ecr describe-images --repository-name aws-ai-native-infra-dev-fastapi --region us-east-1 --query 'imageDetails[].imageTags'
-curl -I http://<alb-dns-name>/
-```
-
-![alt text](docs/screenshots/phase-5-deploy-pipeline.png)
-
----
-
-### Phase 6 — Edge / CDN / WAF
-
-**Activities**
-- One CloudFront distribution, two origins (ALB default behavior, uncached; S3 asset
-  bucket via OAC on `/assets/*`, cached)
-- WAF Web ACL (two AWS managed rule groups + a per-IP rate limit) attached at the edge
-- Real registered domain (`rivetrecords.online`) — Route 53 hosted zone, ACM cert for
-  apex + `www`, split into two applies to avoid a CI job blocking on DNS propagation
-- `docs/ADRs/ADR-007-cloudfront-oac-and-waf.md`
-
-**Validation**
-```powershell
-curl -I https://rivetrecords.online
-# look for: Via: ... (CloudFront), X-Amz-Cf-Pop headers
-nslookup rivetrecords.online
-```
-
-![alt text](docs/screenshots/phase-6-cloudfront-https.png)
-
----
-
-### Phase 7 — Cloudflare Tunnel
-
-**Activities**
-- EC2 + `cloudflared` in the ops subnet, zero inbound rules from the internet
-- Tunnel is Terraform-owned end to end via the `cloudflare` provider (not pasted in
-  once from the dashboard) — traceable in state and git
-- Connector token derived from the Terraform-managed tunnel resource, stored in its own
-  Secrets Manager secret, fetched by the instance at boot
-- `docs/ADRs/ADR-008-cloudflare-tunnel-vs-bastion.md`
-
-**Validation**
-```powershell
-aws ec2 describe-instances --filters "Name=tag:Name,Values=aws-ai-native-infra-dev-cloudflare-tunnel" --region us-east-1 --query 'Reservations[].Instances[].{State:State.Name,PrivateIp:PrivateIpAddress}'
-```
-Zero Trust dashboard: Networks -> Tunnels — status Healthy.
-
-![alt text](docs/screenshots/phase-7-cloudflare-tunnel-healthy.png)
-
----
-
-### Phase 8 — Self-Hosted Flagsmith
-
-**Activities**
-- EC2 + its own small RDS Postgres instance (data subnets, for a valid 2-AZ subnet
-  group), reachable only from the ops SG via a dedicated security group — not the
-  shared Data SG
-- RDS-managed master password; Terraform-generated Django secret key
-- `docs/ADRs/ADR-009-self-hosted-flagsmith.md`
-
-**Validation**
-```powershell
-aws ec2 describe-instances --filters "Name=tag:Name,Values=aws-ai-native-infra-dev-flagsmith" --region us-east-1 --query 'Reservations[].Instances[].State.Name'
-aws rds describe-db-instances --db-instance-identifier aws-ai-native-infra-dev-flagsmith-pg --region us-east-1 --query 'DBInstances[0].DBInstanceStatus'
-```
-
-![alt text](docs/screenshots/phase-8-flagsmith.png)
-
----
-
-### Phase 9 — Observability Stack
-
-**Activities**
-- CloudWatch alarms (ECS CPU/memory, ALB 5xx/unhealthy hosts, RDS CPU/storage, Redis
-  CPU/evictions) -> SNS -> Lambda (stdlib Python, no dependency layer) -> Slack — the
-  one alerting channel
-- Self-hosted OTel Collector + Jaeger (one EC2, two Docker containers) -> Grafana Cloud
-  + self-hosted Jaeger UI
-- Self-hosted Flower, standalone — the one deliberate, documented exception to
-  "Data SG: App tier only," since Flower has to reach the same Redis broker Celery uses
-- `docs/ADRs/ADR-010-observability-two-pipelines.md`
-
-**Validation**
-```powershell
-aws cloudwatch describe-alarms --alarm-name-prefix aws-ai-native-infra-dev --region us-east-1 --query 'MetricAlarms[].{Name:AlarmName,State:StateValue}'
-aws logs tail /ecs/aws-ai-native-infra-dev-celery --since 5m --region us-east-1
-```
-Real CloudWatch alarm -> SNS -> Lambda -> Slack message received in the configured
-channel.
-
-![alt text](docs/screenshots/phase-9-slack-alert.png)
-
-![alt text](docs/screenshots/phase-9-grafana-otel.png)
-
----
-
-### Phase 10 — Backend Application Code
-
-**Activities**
-- FastAPI: `POST /generations` (creates a row, enqueues `generate_content` by task
-  name only — the Celery worker doesn't exist until Phase 11), `GET
-  /generations/{id}` (status + result)
-- `DATABASE_URL` built and percent-encoded from `DB_HOST`/`DB_NAME`/`DB_USER`/
-  `DB_SECRET` (matching the ECS task definition's secrets injection), not a single
-  pre-built env var
-- Migrations run at container start (`alembic upgrade head && uvicorn ...`)
-- `docs/ADRs/ADR-011-fastapi-backend.md`
-
-**Validation**
-```powershell
-curl -X POST https://rivetrecords.online/generations -H "Content-Type: application/json" -d '{"prompt":"a short congratulations message"}'
-curl https://rivetrecords.online/generations/<id>
-```
-
-![alt text](docs/screenshots/phase-10-fastapi-live.png)
-
----
-
-### Phase 11 — Worker Application Code
-
-**Activities**
-- Celery task `generate_content`: fetches the prompt, calls OpenAI (`gpt-4o-mini`),
-  uploads the result to the Phase 6 asset bucket (`assets/generations/<id>.json`,
-  matching CloudFront's `/assets/*` routing), updates status + `result_url`
-- Retries scoped to OpenAI's own transient failure modes only (rate limit, connection,
-  timeout, 5xx) with backoff + jitter — a bug in this code fails loudly instead of
-  retrying forever
-- `status = "failed"` only on genuine final failure (`Task.on_failure`, not a bare
-  `except`)
-- `docs/ADRs/ADR-012-celery-worker.md`
-
-**Validation**
-```powershell
-aws logs tail /ecs/aws-ai-native-infra-dev-celery --since 5m --region us-east-1
-curl https://rivetrecords.online/assets/generations/<id>.json
-```
-
-![alt text](docs/screenshots/phase-11-worker-result.png)
-
----
-
-### Phase 12 — Frontend
-
-**Activities**
-- Minimal Next.js 14 app (`frontend/`): one page, a form that posts to `/generations`,
-  then polls `GET /generations/{id}` every 2s until `completed`/`failed`
-- Tries to render the result message inline, falls back to a plain link if the
-  cross-origin fetch is blocked by CORS
-- CORS middleware added to FastAPI (Phase 10 never needed it — its only client had been
-  `curl`, which doesn't enforce CORS)
-
-**Validation**
-```powershell
-cd frontend
-npm install
-npm run dev
-# http://localhost:3000, NEXT_PUBLIC_API_BASE_URL pointed at the live API
-```
-Verified in an actual browser, not just curl: submitted a real prompt, watched status
-go `pending` -> `completed`, saw the real generated message render inline, against the
-live deployed backend at `rivetrecords.online`.
-
-![alt text](docs/screenshots/phase-12-frontend-ui.png)
-
----
-
-### Phase 13 — Runbooks
-
-**Activities**
-- `docs/Runbooks/redis-queue-saturation.md`
-- `docs/Runbooks/alembic-migration-rollback.md`
-- `docs/Runbooks/ecs-deployment-failure-and-rollback.md`
-- `docs/Runbooks/rds-failover.md`
-
-Each written against what's actually built — real alarm names, the real `rollback_sha`
-mechanism, the real (currently disabled) ECS deployment circuit breaker, the real
-dev-vs-prod Multi-AZ behavior split — not generic incident-response boilerplate.
-
----
-
-### Phase 14 — Cost Review Pass
-
-`docs/COST_NOTES.md` — monthly cost driver + cheapest alternative per module,
-including the explicit multi-AZ cost delta.
-
-### Phase 15 — Architecture Diagram and Docs Polish
-
-Final draw.io export to `docs/screenshots/architecture-diagram.png`, referenced from
-this README.
-
-See [docs/BUILD_PLAN.md](docs/BUILD_PLAN.md) for full phase detail and
-[docs/ADRs/](docs/ADRs/) for decision records.
-
----
+**ECS Fargate, not EKS.** Two separate ECS services (FastAPI, Celery) on one cluster —
+never combined into a single task definition, so each can scale and deploy
+independently.
+
+**Terraform owns infra shape; GitHub Actions owns the release.** Terraform never
+diffs a container image tag. On every deploy, GitHub Actions pushes an immutable
+`:<git-sha>` tag (audit/rollback trail) *and* repoints the moving `:prod` tag, then
+calls `aws ecs update-service --force-new-deployment`. Rollback is re-pointing `:prod`
+at a prior SHA and re-running the deploy step — a real code path
+(`workflow_dispatch` + `rollback_sha`), not just a documented procedure.
+
+**Multi-AZ, but scoped by environment.** RDS Multi-AZ and an ElastiCache replication
+group with automatic failover are prod-only, following the same cost/resilience logic
+as fck-nat (dev/staging) vs. real NAT Gateway (prod) — non-prod runs single-AZ because
+nothing there needs to survive an AZ outage.
+
+**Cloudflare Tunnel instead of a bastion host.** The ops subnet has zero
+internet-facing inbound rules; Cloudflare Tunnel's outbound-only connection is the sole
+path to internal tooling. The tunnel itself is Terraform-owned end to end via the
+Cloudflare provider, not a value pasted in once from the dashboard.
+
+**Self-hosted Flagsmith**, not a SaaS feature-flag vendor — its own EC2 instance and
+its own small RDS instance, reachable only internally.
+
+**Two independent observability pipelines, not one fan-out.** App-level: OTel
+collector -> Grafana Cloud + self-hosted Jaeger (one EC2, two containers), with Flower
+as a standalone self-hosted leaf node. Infra-level: CloudWatch -> SNS -> Lambda ->
+Slack, deliberately the *only* alerting channel — avoids alert fatigue from multiple
+tools paging independently.
+
+**Secrets always via AWS Secrets Manager.** Either Terraform-generated
+(`random_password`, for values with no external origin) or flowed in via
+`TF_VAR_`-prefixed GitHub Actions secrets for values that originate outside AWS
+entirely (a Cloudflare tunnel token, a Slack webhook, an OpenAI API key) — never
+hardcoded, never a plain env var, never committed.
 
 ## Docs
 
@@ -613,11 +183,9 @@ See [docs/BUILD_PLAN.md](docs/BUILD_PLAN.md) for full phase detail and
 - [Runbooks](docs/Runbooks/)
 - [Screenshots](docs/screenshots/)
 
----
-
 ## Author
 
-**Oluwatobi Ogundimu**
+Oluwatobi Ogundimu
 
 GitHub: https://github.com/iampryce
 
