@@ -183,8 +183,7 @@ hardcoded, never a plain env var, never committed.
 ## Live Validation
 
 Real commands run against the deployed `dev` stack (`494472951824`, `us-east-1`), not
-local or mocked. Screenshots below are dashboard-only proof I can't capture myself
-(no browser access) — filenames are the drop-in target once added.
+local or mocked, with a matching screenshot per phase.
 
 ### Phase 0 — S3 backend bootstrap
 
@@ -208,6 +207,8 @@ CIDR: 10.0.0.0/16   State: available   VpcId: vpc-08253a85fd057cc36
   aws-ai-native-infra-dev-ops                 10.0.30.0/24   us-east-1a
 ```
 
+![VPC and subnets](docs/screenshots/phase-1-networking-plan.png)
+
 ### Phase 2 — Database (RDS)
 
 ```powershell
@@ -217,6 +218,8 @@ aws rds describe-db-instances --db-instance-identifier aws-ai-native-infra-dev-p
 Status: available   MultiAZ: False   Engine: 16.14
 Endpoint: aws-ai-native-infra-dev-pg.ck7s2mwimijt.us-east-1.rds.amazonaws.com
 ```
+
+![RDS instance available](docs/screenshots/phase-2-rds-alembic.png)
 
 ### CI/CD — OIDC federation
 
@@ -228,6 +231,8 @@ repo:iampryce/Production-AWS-Infrastructure-for-AI-Native-Applications...:enviro
 2026-07-22T19:09:20+01:00 — real GitHub Actions run assuming the OIDC role, no static AWS keys
 ```
 
+![GitHub Actions OIDC run](docs/screenshots/phase-2b-cicd-pipeline.png)
+
 ### Phase 3 — Redis
 
 ```powershell
@@ -236,6 +241,8 @@ aws elasticache describe-replication-groups --replication-group-id aws-ai-native
 ```
 Status: available   AutomaticFailover: disabled (dev)   NumNodeGroups: 1
 ```
+
+![ElastiCache replication group](docs/screenshots/phase-3-redis.png)
 
 ### Phase 4 — ECS Fargate services
 
@@ -247,6 +254,8 @@ aws-ai-native-infra-dev-fastapi   ACTIVE   desired 1 / running 1
 aws-ai-native-infra-dev-celery    ACTIVE   desired 1 / running 1
 ```
 
+![ECS services healthy](docs/screenshots/phase-4-ecs-healthy-target.png)
+
 ### Phase 5 — Decoupled deploy pipeline
 
 ```powershell
@@ -256,6 +265,8 @@ aws ecr describe-images --repository-name aws-ai-native-infra-dev-fastapi --regi
 Tags: [prod, b88cddf]   Pushed: 2026-07-22T19:09:48+01:00
 ```
 Immutable SHA tag and moving `:prod` tag land on the same image, every deploy.
+
+![ECR image tags](docs/screenshots/phase-5-deploy-pipeline.png)
 
 ### Phase 6 — Edge / CDN / WAF
 
@@ -270,6 +281,8 @@ X-Amz-Cf-Pop: LHR5-P4
 
 {"status":"ok"}
 ```
+
+![CloudFront HTTPS response](docs/screenshots/phase-6-cloudfront-https.png)
 
 ### Phase 7 — Cloudflare Tunnel
 
@@ -292,6 +305,8 @@ aws rds describe-db-instances --db-instance-identifier aws-ai-native-infra-dev-f
 EC2:  running
 RDS:  available
 ```
+
+![Flagsmith instance and RDS](docs/screenshots/phase-8-flagsmith.png)
 
 ### Phase 9 — Observability
 
@@ -325,6 +340,8 @@ POST -> {"id":"e4a178af-...","status":"pending", ...}
 GET  -> {"id":"e4a178af-...","status":"completed","result_url":"https://rivetrecords.online/assets/generations/e4a178af-....json"}
 ```
 
+![FastAPI generation request/response](docs/screenshots/phase-10-fastapi-live.png)
+
 ### Phase 11 — Worker + generated asset
 
 ```powershell
@@ -338,6 +355,8 @@ curl https://rivetrecords.online/assets/generations/<id>.json
 
 {"message": "Congratulations on your new position! ..."}
 ```
+
+![Worker logs and generated asset](docs/screenshots/phase-11-worker-result.png)
 
 ### Phase 12 — Frontend
 
