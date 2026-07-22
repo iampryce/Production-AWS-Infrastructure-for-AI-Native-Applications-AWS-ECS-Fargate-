@@ -152,7 +152,7 @@ at a prior SHA and re-running the deploy step — a real code path
 
 **Multi-AZ, but scoped by environment.** RDS Multi-AZ and an ElastiCache replication
 group with automatic failover are prod-only, following the same cost/resilience logic
-as fck-nat (dev/staging) vs. real NAT Gateway (prod) — non-prod runs single-AZ because
+as fck-nat (dev/staging) vs. real NAT Gateway (prod). Non-prod runs single-AZ because
 nothing there needs to survive an AZ outage.
 
 **Cloudflare Tunnel instead of a bastion host.** The ops subnet has zero
