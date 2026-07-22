@@ -15,14 +15,19 @@ target_metadata = None
 
 
 def get_url() -> str:
+    # DATABASE_URL is an explicit override for one-off local runs; nothing
+    # sets it in ECS. The real path (matching Phase 10's app code and the
+    # ECS task definitions - DB_HOST/DB_NAME/DB_USER/DB_SECRET) is
+    # app.database's own URL builder, reused here rather than duplicated,
+    # since it's the one place that knows to percent-encode the RDS
+    # password before it goes into a URL.
     url = os.environ.get("DATABASE_URL")
-    if not url:
-        raise RuntimeError(
-            "DATABASE_URL is not set. Never hardcode a connection string or "
-            "credential here — export it from Secrets Manager (RDS-managed "
-            "master user secret) or, for local testing, your local Postgres."
-        )
-    return url
+    if url:
+        return url
+
+    from app.database import _database_url
+
+    return _database_url()
 
 
 def run_migrations_offline() -> None:

@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_PASSWORD: localpassword
+      POSTGRES_DB: heartstamp
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      # No REDIS_TLS/REDIS_AUTH_SECRET here on purpose - local Redis runs
+      # with no AUTH and no TLS, unlike ElastiCache. celery_app.py treats
+      # an absent auth secret as "build a bare redis:// URL", not an error.
+      DB_HOST: postgres
+      DB_NAME: heartstamp
+      DB_USER: postgres
+      DB_SECRET: '{"password":"localpassword"}'
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_TLS: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
