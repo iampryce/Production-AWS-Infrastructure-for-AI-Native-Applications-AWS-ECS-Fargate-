@@ -35,7 +35,22 @@ variable "instance_type" {
 # --- Admin access (Jaeger / Flower / Flagsmith, via WARP private network routing) ---
 
 variable "ops_subnet_cidr" {
-  description = "module.network.ops_subnet_cidr. Advertised as a private network route through the tunnel so WARP-connected, Access-allowed devices can reach it directly - no public hostname involved."
+  description = "module.network.ops_subnet_cidr. Advertised as a private network route through the tunnel so WARP-connected, Access-allowed devices can reach it directly."
+  type        = string
+}
+
+# Friendly hostnames for the private IPs below - plain Route 53 A records
+# in the same zone CloudFront/ACM already use. This works because WARP
+# routes by destination IP, not by which DNS server answered the lookup -
+# unlike the abandoned public-hostname design, nothing here needs
+# Cloudflare to be DNS-authoritative for anything.
+variable "root_domain" {
+  description = "module.cloudfront.domain_name's zone (e.g. \"rivetrecords.online\")."
+  type        = string
+}
+
+variable "route53_zone_id" {
+  description = "module.cloudfront.zone_id. Same zone CloudFront/ACM already use - these are just three more records in it."
   type        = string
 }
 

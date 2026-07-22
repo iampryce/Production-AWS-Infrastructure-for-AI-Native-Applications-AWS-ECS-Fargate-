@@ -120,8 +120,11 @@ module "cloudflare_tunnel" {
   cloudflare_account_id = var.cloudflare_account_id
 
   # Admin access (Jaeger/Flower/Flagsmith UIs) rides on the tunnel's
-  # private network route to the ops subnet, gated by WARP + Access - no
-  # public hostname or separate Cloudflare zone involved.
+  # private network route to the ops subnet, gated by WARP + Access.
+  # Friendly hostnames are plain Route 53 records in the same zone
+  # CloudFront/ACM already use - no separate Cloudflare zone involved.
+  root_domain           = var.domain_name
+  route53_zone_id       = module.cloudfront.zone_id
   access_allowed_emails = var.cloudflare_access_allowed_emails
   flagsmith_private_ip  = module.flagsmith.private_ip
   flower_private_ip     = module.monitoring.flower_private_ip

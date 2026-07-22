@@ -15,10 +15,10 @@ output "tunnel_id" {
 }
 
 output "admin_endpoints" {
-  description = "Jaeger/Flower/Flagsmith admin UIs - reachable directly at these addresses once connected via the Cloudflare WARP client and granted a one-time PIN (cloudflare_zero_trust_access_application.warp_enrollment). No public hostname involved."
+  description = "Jaeger/Flower/Flagsmith admin UIs - reachable at these hostnames once connected via the Cloudflare WARP client and granted a one-time PIN (cloudflare_zero_trust_access_application.warp_enrollment). Plain Route 53 A records pointing at private IPs - resolvable by anyone, but only routable through the tunnel's private network route."
   value = {
-    flagsmith = "http://${var.flagsmith_private_ip}:${var.flagsmith_port}"
-    flower    = "http://${var.flower_private_ip}:${var.flower_port}"
-    jaeger    = "http://${var.jaeger_private_ip}:${var.jaeger_port}"
+    flagsmith = "http://flagsmith.admin.${var.root_domain}:${var.flagsmith_port}"
+    flower    = "http://flower.admin.${var.root_domain}:${var.flower_port}"
+    jaeger    = "http://jaeger.admin.${var.root_domain}:${var.jaeger_port}"
   }
 }
