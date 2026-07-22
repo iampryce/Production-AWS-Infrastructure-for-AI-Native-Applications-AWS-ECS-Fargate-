@@ -63,3 +63,10 @@ variable "grafana_cloud_api_key" {
   type      = string
   sensitive = true
 }
+
+# Phase 11. Same pattern - via TF_VAR_openai_api_key (GitHub Actions
+# secret OPENAI_API_KEY), never tfvars.
+variable "openai_api_key" {
+  type      = string
+  sensitive = true
+}

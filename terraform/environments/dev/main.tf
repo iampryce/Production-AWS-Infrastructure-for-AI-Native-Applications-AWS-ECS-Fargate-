@@ -86,6 +86,17 @@ module "ecs" {
   # safe to flip. See ADR-006.
   use_placeholder_images = false
 
+  # Deliberately NOT module.cloudfront.assets_bucket_name - that module
+  # depends on module.ecs.alb_dns_name, so referencing its output back
+  # here would be a module dependency cycle. The name is fully
+  # deterministic, matching cloudfront/s3.tf exactly (see ecs module's
+  # own variables.tf comment).
+  assets_bucket_name    = "${var.project_name}-dev-assets"
+  assets_bucket_arn     = "arn:aws:s3:::${var.project_name}-dev-assets"
+  public_asset_base_url = "https://${var.domain_name}/assets"
+
+  openai_api_key = var.openai_api_key
+
   tags = {
     Environment = "dev"
     Project     = var.project_name

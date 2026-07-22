@@ -34,6 +34,7 @@ data "aws_iam_policy_document" "execution_secrets" {
     resources = [
       var.rds_master_user_secret_arn,
       var.redis_auth_token_secret_arn,
+      aws_secretsmanager_secret.openai_api_key.arn,
     ]
   }
 }
@@ -61,4 +62,22 @@ resource "aws_iam_role" "celery_task" {
   assume_role_policy = data.aws_iam_policy_document.ecs_tasks_assume_role.json
 
   tags = var.tags
+}
+
+# Phase 11: the worker uploads its generated result directly to S3 at
+# runtime (not resolved via ECS's "secrets" mechanism, since this isn't a
+# credential - it's the app calling an AWS API itself), scoped to exactly
+# the "generations/" prefix under the existing Phase 6 assets bucket, not
+# the whole bucket.
+data "aws_iam_policy_document" "celery_task_s3" {
+  statement {
+    actions   = ["s3:PutObject"]
+    resources = ["${var.assets_bucket_arn}/generations/*"]
+  }
+}
+
+resource "aws_iam_role_policy" "celery_task_s3" {
+  name   = "${var.project_name}-${var.environment}-celery-task-s3"
+  role   = aws_iam_role.celery_task.id
+  policy = data.aws_iam_policy_document.celery_task_s3.json
 }

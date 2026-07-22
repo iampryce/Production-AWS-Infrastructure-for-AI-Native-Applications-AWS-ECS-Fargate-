@@ -144,6 +144,38 @@ variable "redis_port" {
   type = number
 }
 
+# --- Phase 11: Celery worker's AI provider call + S3 result storage ---
+
+# Not derived from module.cloudfront's output - that module already
+# depends on this one's alb_dns_name, and referencing cloudfront's bucket
+# name back here would create a module dependency cycle. The bucket name
+# is fully deterministic ("${project_name}-${environment}-assets", no
+# random suffix - see cloudfront/s3.tf), so the root module just
+# constructs the same string directly instead.
+variable "assets_bucket_name" {
+  type = string
+}
+
+variable "assets_bucket_arn" {
+  type = string
+}
+
+# CloudFront routes /assets/* straight to the S3 origin with no
+# origin_path rewrite, so an object stored at key "assets/generations/
+# <id>.json" is reachable at "<public_asset_base_url>/generations/<id>.json".
+variable "public_asset_base_url" {
+  description = "e.g. https://rivetrecords.online/assets - not a secret, just where results become publicly viewable."
+  type        = string
+}
+
+# No default - supplied via TF_VAR_openai_api_key (GitHub Actions secret
+# OPENAI_API_KEY), never terraform.tfvars. Same pattern as the monitoring
+# module's slack_webhook_url/grafana_cloud_api_key (ADR-010).
+variable "openai_api_key" {
+  type      = string
+  sensitive = true
+}
+
 variable "tags" {
   type    = map(string)
   default = {}

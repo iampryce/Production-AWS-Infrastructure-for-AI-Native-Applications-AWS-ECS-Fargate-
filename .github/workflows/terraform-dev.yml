@@ -49,6 +49,7 @@ jobs:
           # / var.grafana_cloud_api_key automatically. Never in tfvars.
           TF_VAR_slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
           TF_VAR_grafana_cloud_api_key: ${{ secrets.GRAFANA_CLOUD_API_KEY }}
+          TF_VAR_openai_api_key: ${{ secrets.OPENAI_API_KEY }}
         # -refresh=false deliberately: a full refresh re-reads every
         # Secrets Manager secret VERSION's actual content (RDS/Redis/
         # Cloudflare tunnel token), which needs secretsmanager:GetSecretValue
@@ -94,6 +95,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           TF_VAR_slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
           TF_VAR_grafana_cloud_api_key: ${{ secrets.GRAFANA_CLOUD_API_KEY }}
+          TF_VAR_openai_api_key: ${{ secrets.OPENAI_API_KEY }}
         run: terraform plan -input=false -no-color -out=tfplan
 
       - name: Terraform Apply
@@ -104,6 +106,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           TF_VAR_slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
           TF_VAR_grafana_cloud_api_key: ${{ secrets.GRAFANA_CLOUD_API_KEY }}
+          TF_VAR_openai_api_key: ${{ secrets.OPENAI_API_KEY }}
         # Applies the exact plan just generated in this job, not a fresh
         # plan re-evaluated at apply time.
         run: terraform apply -input=false tfplan

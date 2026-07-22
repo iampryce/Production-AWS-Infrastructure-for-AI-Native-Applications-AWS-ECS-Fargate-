@@ -88,11 +88,14 @@ resource "aws_ecs_task_definition" "celery" {
         { name = "DB_USER", value = var.rds_master_username },
         { name = "REDIS_HOST", value = var.redis_primary_endpoint_address },
         { name = "REDIS_PORT", value = tostring(var.redis_port) },
+        { name = "ASSETS_BUCKET_NAME", value = var.assets_bucket_name },
+        { name = "PUBLIC_ASSET_BASE_URL", value = var.public_asset_base_url },
       ]
 
       secrets = [
         { name = "DB_SECRET", valueFrom = var.rds_master_user_secret_arn },
         { name = "REDIS_AUTH_SECRET", valueFrom = var.redis_auth_token_secret_arn },
+        { name = "OPENAI_API_KEY", valueFrom = aws_secretsmanager_secret.openai_api_key.arn },
       ]
 
       logConfiguration = {

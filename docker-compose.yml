@@ -37,3 +37,45 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+
+  # S3-compatible local object store - lets the worker's actual
+  # s3.put_object() call run for real locally, same "verify it for real"
+  # discipline as every other phase, without needing real AWS credentials
+  # on a dev machine. S3_ENDPOINT_URL is what the real ECS task never
+  # sets, so the same code path uses real S3 in AWS.
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: localminio
+      MINIO_ROOT_PASSWORD: localminiosecret
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+  worker:
+    build: ./workers
+    environment:
+      DB_HOST: postgres
+      DB_NAME: heartstamp
+      DB_USER: postgres
+      DB_SECRET: '{"password":"localpassword"}'
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_TLS: "false"
+      ASSETS_BUCKET_NAME: heartstamp-local-assets
+      PUBLIC_ASSET_BASE_URL: "http://localhost:9000/heartstamp-local-assets"
+      S3_ENDPOINT_URL: "http://minio:9000"
+      AWS_ACCESS_KEY_ID: localminio
+      AWS_SECRET_ACCESS_KEY: localminiosecret
+      AWS_DEFAULT_REGION: us-east-1
+      # Real key, from a gitignored .env file - never hardcoded, never
+      # this file itself. See .env.example.
+      OPENAI_API_KEY: "${OPENAI_API_KEY}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
