@@ -110,6 +110,24 @@ module "cloudflare_tunnel" {
   }
 }
 
+module "flagsmith" {
+  source = "../../modules/flagsmith"
+
+  project_name = var.project_name
+  environment  = "dev"
+
+  vpc_id                = module.network.vpc_id
+  ops_subnet_id         = module.network.ops_subnet_id
+  ops_security_group_id = module.network.ops_security_group_id
+  data_subnet_ids       = values(module.network.data_subnet_ids)
+
+  tags = {
+    Environment = "dev"
+    Project     = var.project_name
+    ManagedBy   = "terraform"
+  }
+}
+
 module "cloudfront" {
   source = "../../modules/cloudfront"
 
