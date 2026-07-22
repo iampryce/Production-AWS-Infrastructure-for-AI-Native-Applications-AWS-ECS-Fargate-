@@ -88,6 +88,25 @@ to fail the job naturally like any other step. Net: five fewer moving
 parts for one click of convenience — worth it on a project meant to be
 read line by line.
 
+**Incident: the trust condition was wrong on the first real run.** The
+`apply` role's trust condition originally matched
+`sub = "repo:${var.github_repo}:ref:refs/heads/main"`. The very first push
+to `main` failed at `configure-aws-credentials` with
+`Not authorized to perform sts:AssumeRoleWithWebIdentity`. CloudTrail
+(`aws cloudtrail lookup-events --lookup-attributes
+AttributeKey=EventName,AttributeValue=AssumeRoleWithWebIdentity`) showed
+the actual token presented had `sub = "repo:.../REPO:environment:dev"`,
+not the `ref:refs/heads/main` form the trust policy expected. The cause:
+GitHub changes the `sub` claim's format the moment a job sets
+`environment:` (which the `apply` job does, for the approval-gate
+feature) — it becomes `environment:<name>` instead of
+`ref:refs/heads/<branch>`, unconditionally. The fix isn't to chase that
+composite string — GitHub's OIDC token carries `environment` and `ref` as
+independent claims alongside `sub`, so the trust policy now checks both
+directly (`token.actions.githubusercontent.com:environment = "dev"` AND
+`:ref = "refs/heads/main"`), which is more precise than parsing one
+composite value ever was.
+
 ## Consequences
 
 - From this point on, nobody runs `terraform apply` from a laptop — every

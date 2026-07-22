@@ -64,10 +64,23 @@ data "aws_iam_policy_document" "github_apply_trust" {
       values   = ["sts.amazonaws.com"]
     }
 
+    # Two independent claims, not one composite sub string. GitHub's OIDC
+    # token changes its `sub` claim format to "repo:OWNER/REPO:environment:NAME"
+    # whenever the job sets `environment:` (as the apply job does, for the
+    # GitHub Environment approval-gate feature) — it stops being
+    # "ref:refs/heads/main" the moment environment: is set. Rather than
+    # chase that composite format, gate on the environment and ref claims
+    # directly; both must match (conditions in one statement are ANDed).
     condition {
       test     = "StringEquals"
-      variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repo}:ref:refs/heads/main"]
+      variable = "token.actions.githubusercontent.com:environment"
+      values   = ["dev"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:ref"
+      values   = ["refs/heads/main"]
     }
   }
 }
