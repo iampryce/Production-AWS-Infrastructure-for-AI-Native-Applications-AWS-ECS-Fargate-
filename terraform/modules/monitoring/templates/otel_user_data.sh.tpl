@@ -28,6 +28,7 @@ docker run -d \
   --name jaeger \
   --network observability \
   --restart unless-stopped \
+  -p 16686:16686 \
   jaegertracing/all-in-one:latest
 
 docker run -d \
