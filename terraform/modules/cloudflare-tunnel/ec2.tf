@@ -28,6 +28,13 @@ resource "aws_instance" "this" {
     aws_region              = data.aws_region.current.name
   })
 
+  # user_data only ever executes at first boot - without this, changing the
+  # boot script (as this fix does) would update Terraform's state but never
+  # actually re-run on the already-running instance. Matches the intent
+  # already stated in the boot script's own comment: a broken or
+  # out-of-date boot means replace the instance, not patch it in place.
+  user_data_replace_on_change = true
+
   tags = merge(var.tags, {
     Name = "${var.project_name}-${var.environment}-cloudflare-tunnel"
   })
