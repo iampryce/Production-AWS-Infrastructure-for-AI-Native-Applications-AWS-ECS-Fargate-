@@ -149,9 +149,18 @@ data "aws_iam_policy_document" "github_apply_permissions" {
     resources = ["*"]
   }
 
+  # manage_master_user_password = true has RDS create and own this
+  # secret, but the calling principal (this role) still needs permission
+  # for RDS to do that creation on its behalf - not just read it
+  # afterward. Discovered via a real AccessDenied on the first live apply:
+  # "The user isn't authorized to create a secret in AWS Secrets Manager."
   statement {
-    sid = "SecretsManagerReadForRdsManagedSecret"
+    sid = "SecretsManagerForRdsManagedSecret"
     actions = [
+      "secretsmanager:CreateSecret",
+      "secretsmanager:DeleteSecret",
+      "secretsmanager:TagResource",
+      "secretsmanager:PutSecretValue",
       "secretsmanager:GetSecretValue",
       "secretsmanager:DescribeSecret",
       "secretsmanager:ListSecrets",
