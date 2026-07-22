@@ -81,6 +81,11 @@ module "ecs" {
   redis_primary_endpoint_address = module.redis.primary_endpoint_address
   redis_port                     = module.redis.port
 
+  # Phase 5's image-build-deploy pipeline has now pushed a real image to
+  # :prod on both repos (verified: tags 72da7b8 + prod present on both) -
+  # safe to flip. See ADR-006.
+  use_placeholder_images = false
+
   tags = {
     Environment = "dev"
     Project     = var.project_name
