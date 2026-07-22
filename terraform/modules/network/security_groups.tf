@@ -31,7 +31,7 @@ resource "aws_security_group" "data" {
 
 resource "aws_security_group" "ops" {
   name        = "${var.project_name}-${var.environment}-ops-sg"
-  description = "Cloudflare Tunnel EC2, Flagsmith, OTel collector, Flower — no internet-facing inbound rule"
+  description = "Cloudflare Tunnel EC2, Flagsmith, OTel collector, Flower - no internet-facing inbound rule"
   vpc_id      = aws_vpc.this.id
   tags        = var.tags
 }
@@ -131,7 +131,7 @@ resource "aws_vpc_security_group_ingress_rule" "ops_otel_from_app" {
 
 resource "aws_vpc_security_group_egress_rule" "ops_to_anywhere" {
   security_group_id = aws_security_group.ops.id
-  description       = "Outbound only — the Cloudflare Tunnel connection is initiated from here, never inbound"
+  description       = "Outbound only - the Cloudflare Tunnel connection is initiated from here, never inbound"
   ip_protocol       = "-1"
   cidr_ipv4         = "0.0.0.0/0"
 }

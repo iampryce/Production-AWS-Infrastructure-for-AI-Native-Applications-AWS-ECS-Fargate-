@@ -131,6 +131,24 @@ data "aws_iam_policy_document" "github_apply_permissions" {
     resources = ["*"]
   }
 
+  # RDS needs the calling principal (this role) to have KMS grant
+  # permissions to use a KMS key on its behalf - including the AWS-managed
+  # defaults (aws/rds for storage_encrypted, aws/secretsmanager for the
+  # RDS-managed master password). Discovered via a real
+  # KMSKeyNotAccessibleFault on the first live apply. Resource "*" because
+  # AWS-managed key ARNs aren't known ahead of time and aren't created by
+  # this Terraform config.
+  statement {
+    sid = "KMSForManagedKeys"
+    actions = [
+      "kms:DescribeKey",
+      "kms:CreateGrant",
+      "kms:ListGrants",
+      "kms:RetireGrant",
+    ]
+    resources = ["*"]
+  }
+
   statement {
     sid = "SecretsManagerReadForRdsManagedSecret"
     actions = [
