@@ -206,9 +206,10 @@ Actions log) and an `apply` job (push to `main`, read-write role, applies
 that exact saved plan) in the same file, gated by event type. No dynamic
 discovery/matrix
 — staging/prod get their own copy-pasted `terraform-staging.yml` /
-`terraform-prod.yml` when they exist. `ADR-003`. Bootstrap plan reviewed
-(4 to add, 0 to change/destroy) — apply is yours to run, same as the state
-bucket.
+`terraform-prod.yml` when they exist. `ADR-003`. Bootstrap applied — roles
+live: `aws-ai-native-infra-github-actions-plan` and `-apply`. Set as
+`AWS_ROLE_ARN_PLAN`/`AWS_ROLE_ARN_APPLY` repo variables, then push to
+activate the pipeline.
 
 ### Phase 3 — Redis module ⬜
 ElastiCache replication group, automatic failover variable. `ADR-004`.
