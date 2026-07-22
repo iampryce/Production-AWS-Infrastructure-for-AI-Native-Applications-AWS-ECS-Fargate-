@@ -242,6 +242,12 @@ One real bug caught locally before it ever reached the pipeline: ALB/target
 group names are capped at 32 characters, and this project's naming scheme
 exceeded it for the target group.
 
+**Applied and proven live**: deployed entirely through `terraform-dev.yml`
+(24 added, 0 changed/destroyed), FastAPI target registered as `healthy` in
+the target group, and `curl http://<alb-dns>/` returns **HTTP 200** —
+internet → ALB → target group → ECS Fargate task → response, verified
+end to end.
+
 ### Phase 5 — Decoupled deploy pipeline ⬜
 Terraform GitOps pair already done (see above, pulled forward). Remaining:
 `image-build-deploy.yml` (SHA + moving tag, force-new-deployment). `ADR-006`.
