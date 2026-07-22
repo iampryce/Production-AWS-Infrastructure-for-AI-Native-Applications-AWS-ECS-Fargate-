@@ -109,15 +109,38 @@ hostname.
 - `CLOUDFLARE_API_TOKEN` joins the AWS OIDC role as a second external
   credential CI depends on, scoped as narrowly as the Cloudflare token UI
   allows (Tunnel Edit only, no Zone access, no DNS access).
-- No bootstrap/apply-role IAM changes were needed — the apply role's
-  existing `ec2:*`, project-prefix-scoped IAM statement, and broad
-  Secrets Manager statement (added for RDS/Redis in earlier phases) already
-  cover everything this module creates.
+- No apply-role IAM changes were needed — the apply role's existing
+  `ec2:*`, project-prefix-scoped IAM statement, and broad Secrets Manager
+  statement (added for RDS/Redis in earlier phases) already cover
+  everything this module creates.
 - `terraform validate` is clean for both the module and `environments/dev`.
-  The actual `terraform plan`/`apply` run through CI (ADR-003) once this
-  change goes through a PR — not yet exercised live as of this ADR; any real
-  first-apply surprises (this project has hit a few, per ADR-004/ADR-007)
-  get appended here rather than silently fixed.
+
+### One real bug, on the first PR this phase actually triggered
+
+The `plan` role (`ReadOnlyAccess`, per ADR-003) failed on the very first PR
+that touched `environments/dev` after this phase landed —
+`AccessDenied: ... s3:PutObject on ... dev/terraform.tfstate.tflock`.
+Terraform's native S3 state locking (`use_lockfile = true`) writes a
+`.tflock` marker object before it will read state *at all*, for any
+operation — plan included, not just apply. `ReadOnlyAccess` has zero
+`s3:PutObject`/`DeleteObject`, so a pure `terraform plan` couldn't even
+acquire the lock, despite never intending to write real state. Same
+"discovered via a live AccessDenied, not anticipated upfront" pattern as
+ADR-004's `ServiceLinkedRoleNotFoundFault` and ADR-007's IAM growth.
+
+Fix: a new inline policy on the `plan` role
+(`terraform/bootstrap/github-oidc.tf`,
+`aws_iam_role_policy.github_plan_state_lock`), scoped to exactly
+`s3:PutObject`/`DeleteObject` on `${state_bucket_arn}/*.tflock` — nothing
+broader. This preserves the actual security property ADR-003 cares about
+(the plan role still cannot read-modify-write real `.tfstate` object
+content, only coordinate a lock against it), and generalizes to
+staging/prod's future lock files without changes when those environments
+land, since the pattern is `*.tflock`, not `dev/terraform.tfstate.tflock`
+specifically. Applied by hand, same as every bootstrap change — planned
+and reviewed first (1 to add, 0 to change, 0 to destroy), consistent with
+the "show the plan, get explicit confirmation" rule even for the one
+module allowed to skip the CI pipeline.
 - A tunnel created by hand in the dashboard during earlier iteration on this
   phase, and the Secrets Manager secret it was briefly stored in, were both
   deleted before this design was finalized — nothing from that manual path
