@@ -1,5 +1,23 @@
 data "aws_region" "current" {}
 
+locals {
+  # Real images (built from backend/Dockerfile, workers/Dockerfile in
+  # Phase 5) already bake the equivalent placeholder command into their
+  # own Dockerfile CMD, so no command override is needed once
+  # use_placeholder_images = false - only the raw python:3.12-slim image
+  # pulled directly from Docker Hub needs one. `null` here (rather than
+  # conditionally omitting the key via merge()) is deliberate: Terraform's
+  # type checker requires both branches of a conditional object to share
+  # the same shape, but happily unifies a list(string) with null - and the
+  # AWS provider treats a null container_definitions field as omitted when
+  # it builds the actual RegisterTaskDefinition call, not as a literal
+  # empty command.
+  fastapi_image   = var.use_placeholder_images ? var.fastapi_placeholder_image : "${aws_ecr_repository.fastapi.repository_url}:prod"
+  celery_image    = var.use_placeholder_images ? var.celery_placeholder_image : "${aws_ecr_repository.celery.repository_url}:prod"
+  fastapi_command = var.use_placeholder_images ? ["python3", "-m", "http.server", tostring(var.app_port)] : null
+  celery_command  = var.use_placeholder_images ? ["sleep", "infinity"] : null
+}
+
 resource "aws_ecs_task_definition" "fastapi" {
   family                   = "${var.project_name}-${var.environment}-fastapi"
   requires_compatibilities = ["FARGATE"]
@@ -11,11 +29,9 @@ resource "aws_ecs_task_definition" "fastapi" {
 
   container_definitions = jsonencode([
     {
-      name  = "fastapi"
-      image = var.fastapi_placeholder_image
-      # Placeholder command - see the comment on fastapi_placeholder_image
-      # in variables.tf. Removed once the real image is wired in.
-      command = ["python3", "-m", "http.server", tostring(var.app_port)]
+      name    = "fastapi"
+      image   = local.fastapi_image
+      command = local.fastapi_command
 
       portMappings = [
         {
@@ -62,11 +78,9 @@ resource "aws_ecs_task_definition" "celery" {
 
   container_definitions = jsonencode([
     {
-      name  = "celery"
-      image = var.celery_placeholder_image
-      # Placeholder command - stays alive, does nothing. See the comment
-      # on celery_placeholder_image in variables.tf.
-      command = ["sleep", "infinity"]
+      name    = "celery"
+      image   = local.celery_image
+      command = local.celery_command
 
       environment = [
         { name = "DB_HOST", value = var.rds_host },

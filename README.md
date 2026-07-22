@@ -248,9 +248,21 @@ the target group, and `curl http://<alb-dns>/` returns **HTTP 200** —
 internet → ALB → target group → ECS Fargate task → response, verified
 end to end.
 
-### Phase 5 — Decoupled deploy pipeline ⬜
-Terraform GitOps pair already done (see above, pulled forward). Remaining:
-`image-build-deploy.yml` (SHA + moving tag, force-new-deployment). `ADR-006`.
+### Phase 5 — Decoupled deploy pipeline ✅
+Terraform GitOps pair already done (see above, pulled forward).
+`.github/workflows/image-build-deploy.yml`: builds `backend/Dockerfile` /
+`workers/Dockerfile` (minimal placeholders — real app code is Phases
+10/11), pushes each image under an immutable SHA tag and the moving
+`:prod` tag, then `aws ecs update-service --force-new-deployment`.
+`workflow_dispatch` + a `rollback_sha` input implements rollback as a real
+code path (re-point `:prod` at an existing SHA tag, no rebuild) — not just
+a documented procedure. A third, dedicated IAM role
+(`aws-ai-native-infra-github-actions-deploy`) scoped to exactly ECR push +
+`ecs:UpdateService` on this project's own repos/services, separate from
+the apply role. `ADR-006` — the most important one in the project.
+Bootstrap plan reviewed (2 to add) — apply is yours to run. The ECS
+module's `use_placeholder_images` toggle stays `true` until this pipeline
+has pushed something real to `:prod` at least once.
 
 ### Phase 6 — Edge / CDN / WAF ⬜
 CloudFront + OAC, WAF, Route 53, ACM. `ADR-007`.

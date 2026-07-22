@@ -38,16 +38,27 @@ variable "app_port" {
 # --- Placeholder images ---
 #
 # No real application image exists yet (Phases 10/11 build the FastAPI and
-# Celery code; Phase 5 builds the push pipeline). Terraform must never own
-# or diff a real image tag per the decoupled-deploy rule, but a task
-# definition still needs *some* pullable image to prove the ECS shape
-# (cluster, task defs, services, autoscaling) actually works end to end
-# rather than just planning cleanly. `python:3.12-slim` + a command
-# override stands in: http.server on the app port for FastAPI (passes a
-# real ALB health check), `sleep infinity` for Celery (stays alive, does
-# nothing). Swapping to the real image later means changing these two
-# variables to `"${ecr_repository_url}:prod"` and dropping the command
-# override - a deliberate one-time Terraform change, not a per-deploy one.
+# Celery code). Terraform must never own or diff a real image *tag* per the
+# decoupled-deploy rule, but a task definition still needs *some* pullable
+# image to prove the ECS shape (cluster, task defs, services, autoscaling)
+# actually works end to end rather than just planning cleanly.
+# `python:3.12-slim` + a command override stands in: http.server on the app
+# port for FastAPI (passes a real ALB health check), `sleep infinity` for
+# Celery (stays alive, does nothing).
+#
+# `use_placeholder_images` is the one deliberate switch between the two
+# states - flipping it to false points both task definitions at this
+# module's own ECR repos on the `:prod` tag instead (computed from
+# aws_ecr_repository.*.repository_url below, not passed in from outside,
+# so there's no circular reference to the repos this same module creates).
+# That flip happens once, by hand, after Phase 5's image-build-deploy
+# pipeline has actually pushed something real to `:prod` - not before,
+# since the ECS service would fail to pull a tag that doesn't exist yet.
+variable "use_placeholder_images" {
+  type    = bool
+  default = true
+}
+
 variable "fastapi_placeholder_image" {
   type    = string
   default = "python:3.12-slim"

@@ -16,3 +16,8 @@ output "github_actions_apply_role_arn" {
   description = "Set as AWS_ROLE_ARN_APPLY in the GitHub repo. Only assumable from the main branch."
   value       = aws_iam_role.github_apply.arn
 }
+
+output "github_actions_deploy_role_arn" {
+  description = "Set as AWS_ROLE_ARN_DEPLOY in the GitHub repo. Scoped to ECR push + ecs:UpdateService only, main branch only."
+  value       = aws_iam_role.github_deploy.arn
+}

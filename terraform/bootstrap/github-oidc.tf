@@ -260,3 +260,99 @@ resource "aws_iam_role_policy" "github_apply_permissions" {
   role   = aws_iam_role.github_apply.id
   policy = data.aws_iam_policy_document.github_apply_permissions.json
 }
+
+# --- Deploy role: pushes images and rolls ECS services, main branch only ---
+#
+# Deliberately separate from the apply role, same reasoning as the
+# plan/apply split in ADR-003: this identity's whole job is "push an image,
+# restart a service" (Phase 5's image-build-deploy.yml), and it has no
+# reason to carry the apply role's ec2:*/rds:*/elasticache:*/state-bucket
+# access just to do that. Different blast radius, different role.
+
+data "aws_iam_policy_document" "github_deploy_trust" {
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+
+    principals {
+      type        = "Federated"
+      identifiers = [data.aws_iam_openid_connect_provider.github.arn]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+
+    # Same environment:dev + ref:refs/heads/main pattern as the apply role
+    # (ADR-003) - ties image deploys to the same GitHub Environment
+    # approval gate as infra applies, and to main only.
+    condition {
+      test     = "StringLike"
+      variable = "token.actions.githubusercontent.com:sub"
+      values   = ["repo:${local.github_owner}*/${local.github_repo_name}*:environment:dev"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:ref"
+      values   = ["refs/heads/main"]
+    }
+  }
+}
+
+resource "aws_iam_role" "github_deploy" {
+  name               = "${var.project_name}-github-actions-deploy"
+  assume_role_policy = data.aws_iam_policy_document.github_deploy_trust.json
+}
+
+data "aws_iam_policy_document" "github_deploy_permissions" {
+  # ECR authentication (docker login) has no resource-level scoping in
+  # IAM - GetAuthorizationToken always requires Resource "*".
+  statement {
+    sid       = "EcrAuth"
+    actions   = ["ecr:GetAuthorizationToken"]
+    resources = ["*"]
+  }
+
+  # Scoped to this project's repos only, not every ECR repo in the account.
+  statement {
+    sid = "EcrPush"
+    actions = [
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:GetDownloadUrlForLayer",
+      "ecr:BatchGetImage",
+      "ecr:InitiateLayerUpload",
+      "ecr:UploadLayerPart",
+      "ecr:CompleteLayerUpload",
+      "ecr:PutImage",
+    ]
+    resources = [
+      "arn:aws:ecr:*:*:repository/${var.project_name}-*",
+    ]
+  }
+
+  # Scoped to this project's ECS services only.
+  statement {
+    sid = "EcsForceDeploy"
+    actions = [
+      "ecs:UpdateService",
+      "ecs:DescribeServices",
+    ]
+    resources = [
+      "arn:aws:ecs:*:*:service/${var.project_name}-*/${var.project_name}-*",
+    ]
+  }
+
+  statement {
+    sid       = "STSIdentity"
+    actions   = ["sts:GetCallerIdentity"]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "github_deploy_permissions" {
+  name   = "${var.project_name}-github-actions-deploy-permissions"
+  role   = aws_iam_role.github_deploy.id
+  policy = data.aws_iam_policy_document.github_deploy_permissions.json
+}

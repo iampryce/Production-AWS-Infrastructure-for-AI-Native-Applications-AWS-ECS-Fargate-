@@ -1,0 +1,141 @@
+name: Image Build & Deploy (dev)
+
+# Never touches Terraform state or calls terraform apply - this workflow's
+# whole job is "build an image, push it, restart the ECS service." Infra
+# shape is terraform-dev.yml's job, not this one's.
+#
+# On a normal push, both services rebuild and redeploy regardless of which
+# path actually changed - simpler to read than conditional per-service
+# triggering, at the cost of an occasional redeploy of an unchanged image.
+#
+# workflow_dispatch + rollback_sha implements the actual rollback path:
+# re-point :prod at an image that already exists under a prior SHA tag,
+# no rebuild. See ADR-006.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "workers/**"
+  workflow_dispatch:
+    inputs:
+      rollback_sha:
+        description: "Roll back to this short SHA (must already exist as a tag on both ECR repos) instead of building"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  ECS_CLUSTER: aws-ai-native-infra-dev
+  ECR_FASTAPI_REPO: aws-ai-native-infra-dev-fastapi
+  ECR_CELERY_REPO: aws-ai-native-infra-dev-celery
+  ECS_FASTAPI_SERVICE: aws-ai-native-infra-dev-fastapi
+  ECS_CELERY_SERVICE: aws-ai-native-infra-dev-celery
+
+jobs:
+  deploy-fastapi:
+    runs-on: ubuntu-latest
+    environment: dev
+    permissions:
+      id-token: write # required for OIDC
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      # Read-write, but scoped to exactly ECR push + ecs:UpdateService on
+      # this project's own repos/services - not the apply role's broader
+      # infra permissions. See terraform/bootstrap/github-oidc.tf.
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN_DEPLOY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: aws-actions/amazon-ecr-login@v2
+        id: ecr-login
+
+      - name: Determine image tag
+        id: tag
+        run: |
+          if [ -n "${{ inputs.rollback_sha }}" ]; then
+            echo "sha=${{ inputs.rollback_sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and push (or re-tag an existing SHA for rollback)
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          REPO: ${{ env.ECR_FASTAPI_REPO }}
+          SHA: ${{ steps.tag.outputs.sha }}
+        run: |
+          if [ -n "${{ inputs.rollback_sha }}" ]; then
+            docker pull "$REGISTRY/$REPO:$SHA"
+            docker tag "$REGISTRY/$REPO:$SHA" "$REGISTRY/$REPO:prod"
+            docker push "$REGISTRY/$REPO:prod"
+          else
+            docker build -t "$REGISTRY/$REPO:$SHA" -t "$REGISTRY/$REPO:prod" ./backend
+            docker push "$REGISTRY/$REPO:$SHA"
+            docker push "$REGISTRY/$REPO:prod"
+          fi
+
+      - name: Force new deployment
+        run: |
+          aws ecs update-service \
+            --cluster "$ECS_CLUSTER" \
+            --service "$ECS_FASTAPI_SERVICE" \
+            --force-new-deployment \
+            --region "$AWS_REGION"
+
+  deploy-celery:
+    runs-on: ubuntu-latest
+    environment: dev
+    permissions:
+      id-token: write # required for OIDC
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN_DEPLOY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: aws-actions/amazon-ecr-login@v2
+        id: ecr-login
+
+      - name: Determine image tag
+        id: tag
+        run: |
+          if [ -n "${{ inputs.rollback_sha }}" ]; then
+            echo "sha=${{ inputs.rollback_sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and push (or re-tag an existing SHA for rollback)
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          REPO: ${{ env.ECR_CELERY_REPO }}
+          SHA: ${{ steps.tag.outputs.sha }}
+        run: |
+          if [ -n "${{ inputs.rollback_sha }}" ]; then
+            docker pull "$REGISTRY/$REPO:$SHA"
+            docker tag "$REGISTRY/$REPO:$SHA" "$REGISTRY/$REPO:prod"
+            docker push "$REGISTRY/$REPO:prod"
+          else
+            docker build -t "$REGISTRY/$REPO:$SHA" -t "$REGISTRY/$REPO:prod" ./workers
+            docker push "$REGISTRY/$REPO:$SHA"
+            docker push "$REGISTRY/$REPO:prod"
+          fi
+
+      - name: Force new deployment
+        run: |
+          aws ecs update-service \
+            --cluster "$ECS_CLUSTER" \
+            --service "$ECS_CELERY_SERVICE" \
+            --force-new-deployment \
+            --region "$AWS_REGION"
