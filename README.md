@@ -220,8 +220,12 @@ ElastiCache Redis 7.1 (verified live), `automatic_failover_enabled`
 variable (no default, dev = false), AUTH token generated + stored in its
 own Secrets Manager secret (no AWS-managed equivalent to RDS's feature, so
 this module builds it), at-rest + in-transit encryption hardcoded on.
-`ADR-004`. Plan reviewed (6 to add, 0 to change/destroy) — apply goes
-through the pipeline, not a local terminal.
+`ADR-004`. **Applied and live in AWS** — deployed entirely through the
+CI/CD pipeline. Three more real bugs surfaced and fixed along the way
+(missing ElastiCache service-linked role, a missing
+`secretsmanager:GetResourcePolicy` permission, and a secret stuck in its
+30-day deletion recovery window from an earlier failed attempt) — all
+documented in `ADR-004`.
 
 ### Phase 4 — ECS Fargate module ⬜
 Cluster, two services (FastAPI, Celery), placeholder image reference only,
