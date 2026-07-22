@@ -91,9 +91,13 @@ module "ecs" {
   # here would be a module dependency cycle. The name is fully
   # deterministic, matching cloudfront/s3.tf exactly (see ecs module's
   # own variables.tf comment).
-  assets_bucket_name    = "${var.project_name}-dev-assets"
-  assets_bucket_arn     = "arn:aws:s3:::${var.project_name}-dev-assets"
-  public_asset_base_url = "https://${var.domain_name}/assets"
+  assets_bucket_name = "${var.project_name}-dev-assets"
+  assets_bucket_arn  = "arn:aws:s3:::${var.project_name}-dev-assets"
+  # Site root, not "/assets" - the worker's own S3 key already carries
+  # the "assets/" prefix CloudFront's /assets/* behavior expects, so
+  # this base plus that key produces the correct public URL without
+  # doubling up the segment.
+  public_asset_base_url = "https://${var.domain_name}"
 
   openai_api_key = var.openai_api_key
 

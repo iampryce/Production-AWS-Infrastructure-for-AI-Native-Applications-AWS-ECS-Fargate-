@@ -161,10 +161,11 @@ variable "assets_bucket_arn" {
 }
 
 # CloudFront routes /assets/* straight to the S3 origin with no
-# origin_path rewrite, so an object stored at key "assets/generations/
-# <id>.json" is reachable at "<public_asset_base_url>/generations/<id>.json".
+# origin_path rewrite - the worker's own S3 key already carries the
+# "assets/" prefix that requires (assets/generations/<id>.json), so this
+# is the site root, not the "/assets" path itself.
 variable "public_asset_base_url" {
-  description = "e.g. https://rivetrecords.online/assets - not a secret, just where results become publicly viewable."
+  description = "e.g. https://rivetrecords.online - not a secret, just where results become publicly viewable."
   type        = string
 }
 

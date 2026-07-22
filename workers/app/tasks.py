@@ -81,7 +81,13 @@ def generate_content(generation_id: str) -> None:
         message = response.choices[0].message.content
 
         bucket_name = os.environ["ASSETS_BUCKET_NAME"]
-        key = f"generations/{generation_id}.json"
+        # "assets/" prefix is load-bearing, not cosmetic: CloudFront's
+        # /assets/* cache behavior has no origin_path rewrite (Phase 6),
+        # so a request to <site>/assets/generations/<id>.json maps
+        # directly to this S3 key - a mismatch here 403s at the edge
+        # (discovered for real: the first live object was stored without
+        # this prefix and CloudFront couldn't find it).
+        key = f"assets/generations/{generation_id}.json"
         s3 = _s3_client()
         _ensure_local_bucket(s3, bucket_name)
         s3.put_object(

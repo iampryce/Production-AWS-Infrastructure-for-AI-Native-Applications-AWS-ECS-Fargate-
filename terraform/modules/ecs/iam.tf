@@ -67,12 +67,14 @@ resource "aws_iam_role" "celery_task" {
 # Phase 11: the worker uploads its generated result directly to S3 at
 # runtime (not resolved via ECS's "secrets" mechanism, since this isn't a
 # credential - it's the app calling an AWS API itself), scoped to exactly
-# the "generations/" prefix under the existing Phase 6 assets bucket, not
-# the whole bucket.
+# the "assets/generations/" prefix the worker writes to (see
+# workers/app/tasks.py - CloudFront's /assets/* behavior has no
+# origin_path rewrite, so the key needs that prefix for the public URL
+# to actually resolve), not the whole bucket.
 data "aws_iam_policy_document" "celery_task_s3" {
   statement {
     actions   = ["s3:PutObject"]
-    resources = ["${var.assets_bucket_arn}/generations/*"]
+    resources = ["${var.assets_bucket_arn}/assets/generations/*"]
   }
 }
 
