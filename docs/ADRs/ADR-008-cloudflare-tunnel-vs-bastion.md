@@ -171,5 +171,12 @@ Terraform would've recorded the new script in state without ever actually
 re-running it. Set to `true` explicitly, which matches what the boot
 script's own comment already claimed ("if the token ever needs to rotate,
 replace the instance") but hadn't actually been wired up to do. Next
-apply replaces the one EC2 instance; everything else (the tunnel resource,
-its token, the IAM role) is untouched.
+apply replaced the one EC2 instance; everything else (the tunnel resource,
+its token, the IAM role) was untouched, confirmed by `terraform apply`'s
+own summary: `1 added, 0 changed, 1 destroyed`.
+
+**Verified live**: the replacement instance came up, installed
+`cloudflared` successfully, and the Zero Trust dashboard shows the tunnel
+as **Healthy**, 1 active replica. Phase 7 is fully working end to end —
+admin access to the ops subnet now goes through the tunnel, with zero
+inbound rules from the internet anywhere in that subnet.
