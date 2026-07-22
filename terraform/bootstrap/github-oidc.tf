@@ -171,21 +171,26 @@ data "aws_iam_policy_document" "github_apply_permissions" {
   # bucket ARN and shouldn't grow implicitly as more project buckets show
   # up. Prefix-scoped to this project's buckets only, not every bucket in
   # the account.
+  #
+  # Read side is Get*/List* broadly rather than enumerated action-by-
+  # action: aws_s3_bucket reads back many sub-attributes on every refresh
+  # (ACL, versioning, CORS, logging, replication, etc.), discovered via a
+  # real AccessDenied on s3:GetBucketAcl that wasn't in the original list
+  # - enumerating each one individually is a whack-a-mole this project
+  # isn't interested in playing twice. Write side stays explicit, since
+  # those are the actions that actually mutate state.
   statement {
     sid = "S3ForProjectBuckets"
     actions = [
       "s3:CreateBucket",
       "s3:DeleteBucket",
       "s3:PutBucketPolicy",
-      "s3:GetBucketPolicy",
       "s3:DeleteBucketPolicy",
       "s3:PutBucketPublicAccessBlock",
-      "s3:GetBucketPublicAccessBlock",
       "s3:PutEncryptionConfiguration",
-      "s3:GetEncryptionConfiguration",
       "s3:PutBucketTagging",
-      "s3:GetBucketTagging",
-      "s3:ListBucket",
+      "s3:Get*",
+      "s3:List*",
     ]
     resources = [
       "arn:aws:s3:::${var.project_name}-*",
