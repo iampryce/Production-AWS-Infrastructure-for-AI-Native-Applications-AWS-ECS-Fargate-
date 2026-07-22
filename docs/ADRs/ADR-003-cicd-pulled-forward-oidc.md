@@ -137,6 +137,32 @@ presented (CloudTrail, in this case), especially once a job introduces a
 new feature like `environment:` that changes claim shape in ways that
 aren't obvious from the workflow YAML alone.
 
+## Addendum: the plan role can't refresh secret content, on purpose
+
+Discovered on the first PR that actually got its `plan` job reviewed
+carefully end to end (Phase 7): `terraform plan`'s default state refresh
+tries to re-read every `aws_secretsmanager_secret_version` resource's
+actual value (RDS's, Redis's, and later the Cloudflare tunnel's), which
+needs `secretsmanager:GetSecretValue` — a permission `ReadOnlyAccess`
+excludes on purpose (AWS's own managed policy treats secret payloads
+differently from read-only metadata). The `plan` role can't be given that
+permission: it's assumable from **any branch or PR** by design, specifically
+so a compromised or careless PR workflow can only ever read, never mutate.
+Granting `GetSecretValue` would mean any PR author could read live
+production credentials directly — a materially bigger hole than the
+"read-only" guarantee this whole role split exists to provide.
+
+Fix: `terraform plan` in the `plan` job runs with `-refresh=false`
+(`.github/workflows/terraform-dev.yml`) — it diffs the `.tf` config against
+the last-known state from the most recent `apply`, not a live re-read of
+AWS. The `apply` job is unaffected; it still does a full refresh before
+applying, using the write-capable role that already has
+`secretsmanager:GetSecretValue` for its own reasons. Tradeoff: the PR-time
+plan won't catch out-of-band drift (e.g. someone hand-editing a resource in
+the AWS console) between applies — acceptable, since catching that isn't
+what the PR plan step is for; it's for previewing the change this PR is
+about to make.
+
 ## Consequences
 
 - From this point on, nobody runs `terraform apply` from a laptop — every

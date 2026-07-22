@@ -282,8 +282,18 @@ no CI job should sit blocked on DNS propagation it doesn't control:
 after nameserver delegation to Namecheap was confirmed propagated by
 checking multiple public resolvers directly, **step 2**
 (`aws_acm_certificate_validation`, S3 bucket, CloudFront distribution,
-WAF). Both plans reviewed and applied clean (dev: 4 + 10 to add across the
-two steps; bootstrap: 1 change + 1 change for the growing IAM policy).
+WAF). Hit two more real IAM permission gaps (`s3:GetBucketAcl` and
+friends — broadened to `s3:Get*`/`s3:List*` rather than enumerating each
+one) and a genuine `CNAMEAlreadyExists` conflict (an old, disabled,
+unrelated CloudFront distribution in this same AWS account already had
+the alias, from before this project — confirmed unused and deleted).
+
+**Live and verified end to end**: `https://rivetrecords.online` returns
+**HTTP 200** over valid HTTPS, with `Via: ... (CloudFront)` and
+`X-Amz-Cf-Pop` headers confirming the request actually routed through
+CloudFront, all the way back to the ECS Fargate task behind the ALB. Real
+domain → Route 53 → CloudFront (WAF + ACM) → ALB → Fargate, the whole
+chain, live.
 
 ### Phase 7 — Cloudflare Tunnel ⬜
 EC2 + `cloudflared` in the ops subnet, zero inbound rules. `ADR-008`.

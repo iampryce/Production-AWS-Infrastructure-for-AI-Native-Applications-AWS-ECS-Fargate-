@@ -55,6 +55,35 @@ resource "aws_iam_role_policy_attachment" "github_plan_readonly" {
   policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"
 }
 
+# ReadOnlyAccess alone isn't enough to even run `terraform plan` -
+# Terraform's native S3 state locking (`use_lockfile = true`) writes a
+# `.tflock` marker object before it will read state at all, for any
+# operation, plan included; ReadOnlyAccess has no s3:PutObject/DeleteObject
+# whatsoever. Discovered via a real AccessDenied on the first PR that
+# touched terraform/environments/dev after Phase 7 landed - same "found it
+# via a live error" pattern as ADR-004/ADR-007's KMS and secretsmanager
+# gaps. Scoped to only `*.tflock` object keys in the state bucket, never
+# the `.tfstate` objects themselves - this role can coordinate a lock, but
+# still cannot read-modify-write real state content, which is what
+# actually keeps it unable to mutate infrastructure.
+data "aws_iam_policy_document" "github_plan_state_lock" {
+  statement {
+    actions = [
+      "s3:PutObject",
+      "s3:DeleteObject",
+    ]
+    resources = [
+      "${aws_s3_bucket.terraform_state.arn}/*.tflock",
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "github_plan_state_lock" {
+  name   = "${var.project_name}-github-actions-plan-state-lock"
+  role   = aws_iam_role.github_plan.id
+  policy = data.aws_iam_policy_document.github_plan_state_lock.json
+}
+
 # --- Apply role: read-write, main branch only ---
 
 data "aws_iam_policy_document" "github_apply_trust" {

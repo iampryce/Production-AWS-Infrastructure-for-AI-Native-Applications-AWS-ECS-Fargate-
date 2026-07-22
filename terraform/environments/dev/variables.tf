@@ -33,3 +33,8 @@ variable "domain_name" {
   description = "Apex domain for Phase 6 (Route 53 + ACM + CloudFront)."
   type        = string
 }
+
+variable "cloudflare_account_id" {
+  description = "Phase 7. Cloudflare account ID that owns the ops tunnel - not a secret, see terraform/modules/cloudflare-tunnel/variables.tf for where to find it."
+  type        = string
+}

@@ -93,6 +93,23 @@ module "ecs" {
   }
 }
 
+module "cloudflare_tunnel" {
+  source = "../../modules/cloudflare-tunnel"
+
+  project_name = var.project_name
+  environment  = "dev"
+
+  ops_subnet_id         = module.network.ops_subnet_id
+  ops_security_group_id = module.network.ops_security_group_id
+  cloudflare_account_id = var.cloudflare_account_id
+
+  tags = {
+    Environment = "dev"
+    Project     = var.project_name
+    ManagedBy   = "terraform"
+  }
+}
+
 module "cloudfront" {
   source = "../../modules/cloudfront"
 

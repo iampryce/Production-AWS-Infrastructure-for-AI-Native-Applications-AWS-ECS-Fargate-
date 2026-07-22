@@ -6,6 +6,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "~> 5.0"
+    }
   }
 
   backend "s3" {
@@ -30,3 +34,9 @@ provider "aws" {
   alias  = "us_east_1"
   region = "us-east-1"
 }
+
+# No arguments here on purpose - reads its credential from the
+# CLOUDFLARE_API_TOKEN env var (set in CI, never committed or put in
+# tfvars), the same way the aws provider above reads AWS credentials from
+# its environment rather than a hardcoded value.
+provider "cloudflare" {}
