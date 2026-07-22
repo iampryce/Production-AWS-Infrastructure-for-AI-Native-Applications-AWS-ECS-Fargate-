@@ -65,6 +65,27 @@ the CI apply role's IAM policy got `elasticache:*` and an expanded
 Secrets-Manager statement added *in the same change* that introduces this
 module, not discovered the hard way a second time.
 
+### Two more bugs, on the actual first apply
+
+Proactively adding `elasticache:*` and expanding Secrets Manager wasn't
+enough — the first real apply still hit two new errors, both new failure
+modes not seen in Phase 1/2:
+
+- `CreateCacheSubnetGroup`/`CreateCacheParameterGroup` both failed with
+  `ServiceLinkedRoleNotFoundFault`. This AWS account had never used
+  ElastiCache before, so `AWSServiceRoleForElastiCache` didn't exist —
+  the AWS Console creates it automatically on first use, the API does
+  not. Fixed with `aws_iam_service_linked_role` in
+  `terraform/bootstrap/service-linked-roles.tf` — deliberately in
+  bootstrap, not the `redis` module, since it's account-wide and one-time;
+  creating it per-environment would just conflict, not duplicate anything
+  useful.
+- Creating the Secrets Manager secret failed with `AccessDeniedException`
+  on `secretsmanager:GetResourcePolicy` — the AWS provider calls this
+  itself as part of reading back a secret right after creating it, which
+  wasn't in the apply role's policy since nothing in this project
+  attaches resource policies to secrets directly.
+
 ## Consequences
 
 - Bootstrap's apply-role policy needed updating again (`elasticache:*`,

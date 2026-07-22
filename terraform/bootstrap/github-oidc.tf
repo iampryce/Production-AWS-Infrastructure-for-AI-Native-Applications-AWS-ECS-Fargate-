@@ -174,6 +174,7 @@ data "aws_iam_policy_document" "github_apply_permissions" {
       "secretsmanager:TagResource",
       "secretsmanager:PutSecretValue",
       "secretsmanager:GetSecretValue",
+      "secretsmanager:GetResourcePolicy",
       "secretsmanager:DescribeSecret",
       "secretsmanager:ListSecrets",
     ]
