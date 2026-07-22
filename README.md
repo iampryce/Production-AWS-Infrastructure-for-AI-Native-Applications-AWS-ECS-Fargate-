@@ -159,10 +159,11 @@ nothing there needs to survive an AZ outage.
 internet-facing inbound rules; Cloudflare Tunnel's outbound-only connection is the sole
 path to internal tooling. The tunnel itself is Terraform-owned end to end via the
 Cloudflare provider, not a value pasted in once from the dashboard. Admin UIs
-(Jaeger, Flower, Flagsmith) sit behind a subdomain delegated to Cloudflare
-specifically so the tunnel can route to them by hostname and Cloudflare Access can
-gate them - one-time PIN to an explicit email allow-list, since none of the three
-tools has its own login.
+(Jaeger, Flower, Flagsmith) sit behind `admin.rivetrecords.online`, a subdomain
+delegated to Cloudflare via NS records so the tunnel can route to them by
+hostname (`jaeger.`, `flower.`, `flagsmith.admin.rivetrecords.online`) and
+Cloudflare Access can gate them - one-time PIN to an explicit email allow-list,
+since none of the three tools has its own login.
 
 **Self-hosted Flagsmith**, not a SaaS feature-flag vendor - its own EC2 instance and
 its own small RDS instance, reachable only internally.
