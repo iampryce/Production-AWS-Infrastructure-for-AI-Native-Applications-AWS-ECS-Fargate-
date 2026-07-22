@@ -1,6 +1,7 @@
 import uuid
 
 from fastapi import Depends, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from .celery_app import celery_app
@@ -9,6 +10,19 @@ from .models import GenerationRequest
 from .schemas import GenerationCreate, GenerationResponse
 
 app = FastAPI(title="heartstamp generation API")
+
+# Phase 12: the frontend is a separate origin (localhost:3000 in dev, no
+# fixed hosting domain yet - out of this phase's scope). Permissive on
+# purpose, not an oversight: this API has no cookies/session auth to leak
+# via CSRF-style abuse, and every field it returns (a prompt, a status, a
+# public S3/CloudFront result URL) is already meant to be readable by
+# whoever holds the generation's UUID.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/")

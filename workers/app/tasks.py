@@ -27,6 +27,34 @@ def _ensure_local_bucket(s3, bucket_name: str) -> None:
     except Exception:
         pass
 
+    # Real S3 stays fully private (block_public_acls etc, Phase 6) and is
+    # only ever readable via CloudFront's OAC - a server-side grant, not
+    # something a browser's anonymous GET needs to satisfy. Locally there's
+    # no CloudFront in front of MinIO, so the browser hits MinIO's raw S3
+    # API directly (PUBLIC_ASSET_BASE_URL points straight at it) -
+    # discovered for real via a browser AccessDenied, not anticipated
+    # upfront. This public-read policy is the local-only stand-in for what
+    # CloudFront's OAC does in AWS; it never runs against the real bucket.
+    try:
+        s3.put_bucket_policy(
+            Bucket=bucket_name,
+            Policy=json.dumps(
+                {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": "*",
+                            "Action": "s3:GetObject",
+                            "Resource": f"arn:aws:s3:::{bucket_name}/*",
+                        }
+                    ],
+                }
+            ),
+        )
+    except Exception:
+        pass
+
 
 class _GenerationTask(Task):
     # Runs once, only when Celery has genuinely given up (all retries
