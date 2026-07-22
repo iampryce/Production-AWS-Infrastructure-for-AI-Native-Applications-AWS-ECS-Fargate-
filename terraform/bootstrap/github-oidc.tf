@@ -6,6 +6,11 @@ variable "github_repo" {
   default     = "iampryce/Production-AWS-Infrastructure-for-AI-Native-Applications-AWS-ECS-Fargate-"
 }
 
+locals {
+  github_owner     = split("/", var.github_repo)[0]
+  github_repo_name = split("/", var.github_repo)[1]
+}
+
 # Reused, not recreated — AWS allows only one OIDC provider per URL per
 # account, and one already exists in this account from a prior project.
 data "aws_iam_openid_connect_provider" "github" {
@@ -29,10 +34,13 @@ data "aws_iam_policy_document" "github_plan_trust" {
       values   = ["sts.amazonaws.com"]
     }
 
+    # Wildcarded after each name segment for the same reason as the apply
+    # role below — matches whether or not GitHub embeds a numeric
+    # owner/repo ID after the name, without ever matching another repo.
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repo}:*"]
+      values   = ["repo:${local.github_owner}*/${local.github_repo_name}*:*"]
     }
   }
 }
@@ -69,17 +77,24 @@ data "aws_iam_policy_document" "github_apply_trust" {
     # from other claims like `environment`/`ref` gets rejected outright
     # ("MalformedPolicyDocument ... must evaluate ... sub ... which is not
     # scoped to all"), discovered the hard way on the first real apply.
+    #
     # GitHub's OIDC token changes `sub`'s format to
     # "repo:OWNER/REPO:environment:NAME" the moment a job sets
-    # `environment:` (as the apply job does, for the approval-gate
-    # feature) — it's no longer "ref:refs/heads/main" once that's set.
-    # `ref` stays available as its own separate claim, so it's added as a
-    # second, ANDed condition for extra precision beyond what `sub` alone
-    # requires.
+    # `environment:` (as the apply job does) — but the actual value
+    # observed via CloudTrail on this account is
+    # "repo:iampryce@170509563/REPO-NAME@1307826954:environment:dev", with
+    # GitHub's own stable numeric owner/repo IDs embedded after each name
+    # (protects the trust policy from breaking on a repo rename/transfer —
+    # not something this policy controls or should hardcode). StringLike
+    # with wildcards in exactly those two spots matches real tokens for
+    # this repo regardless of the numeric ID, without falling back to
+    # matching "all" the way a bare `*` would — GitHub, not the token
+    # requester, controls what can appear after `@`, so this stays scoped
+    # to this specific repo.
     condition {
-      test     = "StringEquals"
+      test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repo}:environment:dev"]
+      values   = ["repo:${local.github_owner}*/${local.github_repo_name}*:environment:dev"]
     }
 
     condition {

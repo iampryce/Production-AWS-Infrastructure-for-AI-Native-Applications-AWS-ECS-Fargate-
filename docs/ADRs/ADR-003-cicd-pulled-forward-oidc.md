@@ -110,14 +110,32 @@ a scoped, non-wildcarded condition —
 scoped to all`. AWS specifically requires anchoring to one of those two
 claims; other claims alone aren't sufficient, however precisely scoped.
 
-Final fix: keep `sub`, but with the *correct* value discovered via
-CloudTrail (`repo:${var.github_repo}:environment:dev`), and add `ref` as a
-second, ANDed condition for extra precision beyond what `sub` alone
-requires. Two real bugs, two different failure modes (a silent runtime
-`AccessDenied` vs. a `terraform apply`-time policy validation error) —
-worth keeping both in mind: OIDC claim formats are not something to
-assume, and AWS enforces its own opinions about what a valid GitHub trust
-policy has to anchor on.
+Second fix: keep `sub`, using the value CloudTrail showed
+(`repo:${var.github_repo}:environment:dev`), plus `ref` as a second, ANDed
+condition. That satisfied AWS's validation and applied cleanly — but the
+*next* real run still failed with the exact same runtime `AccessDenied`.
+Looking at CloudTrail again, the actual `sub` presented was
+`repo:iampryce@170509563/Production-AWS-Infrastructure-for-AI-Native-
+Applications-AWS-ECS-Fargate-@1307826954:environment:dev` — GitHub embeds
+its own stable numeric owner/repo IDs directly into the subject
+(protection against a repo rename/transfer silently invalidating trust
+policies elsewhere), not just `owner/repo` names the way the commonly
+documented example format shows. Third and final fix: `StringLike` with a
+wildcard placed right after each name segment
+(`repo:iampryce*/REPO-NAME*:environment:dev`) — matches the real token
+regardless of the numeric ID, without matching any other repo, since
+GitHub (not the token requester) controls what can legally appear after
+`@`. Applied the same wildcard defensively to the `plan` role's condition
+too, even though it hadn't been exercised by a real PR yet.
+
+Three real bugs in one afternoon, three different failure modes (silent
+runtime `AccessDenied`, a `terraform apply`-time policy validation error,
+then a second silent runtime `AccessDenied` from an unexpectedly-shaped
+claim) — the throughline: don't assume an OIDC claim format from
+documentation or a first success, verify it against what's actually being
+presented (CloudTrail, in this case), especially once a job introduces a
+new feature like `environment:` that changes claim shape in ways that
+aren't obvious from the workflow YAML alone.
 
 ## Consequences
 
