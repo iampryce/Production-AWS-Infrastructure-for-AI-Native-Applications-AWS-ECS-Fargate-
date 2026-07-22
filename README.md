@@ -183,16 +183,17 @@ Status legend: ✅ done · 🔄 in progress · ⬜ planned
 
 ### Phase 1 — Networking module ✅
 VPC, 7 subnets (2 public / 2 app / 2 data / 1 ops), route tables, NAT (fck-nat
-non-prod / NAT Gateway per-AZ prod), security group chain. `ADR-001`. Plan
-reviewed (45 to add, 0 to change/destroy) — apply is yours to run.
+non-prod / NAT Gateway per-AZ prod), security group chain. `ADR-001`.
+**Applied and live in AWS** — deployed entirely through the CI/CD pipeline
+below, not a local terminal.
 
 ### Phase 2 — Database module ✅
 RDS Postgres 16 + pgvector, `multi_az` variable (no default, dev = false),
 Secrets Manager-managed master password (never in state/config). Alembic
 set up in `backend/`, two migrations written and verified against a real
 local Postgres 16 + pgvector container (upgrade/downgrade round trip
-confirmed). `ADR-002`. Plan reviewed (48 to add total, 0 to change/destroy)
-— apply is yours to run.
+confirmed). `ADR-002`. **Applied and live in AWS** — the RDS instance is
+up and running, deployed through the pipeline.
 
 ### CI/CD pulled forward (between Phase 2 and Phase 3) ✅
 Originally scheduled for Phase 5 — moved up so every apply from here on
@@ -204,12 +205,15 @@ only), and one workflow file per environment, `terraform-dev.yml` — a
 `plan` job (PRs into `main`, read-only role, plan output visible in the
 Actions log) and an `apply` job (push to `main`, read-write role, applies
 that exact saved plan) in the same file, gated by event type. No dynamic
-discovery/matrix
-— staging/prod get their own copy-pasted `terraform-staging.yml` /
-`terraform-prod.yml` when they exist. `ADR-003`. Bootstrap applied — roles
-live: `aws-ai-native-infra-github-actions-plan` and `-apply`. Set as
-`AWS_ROLE_ARN_PLAN`/`AWS_ROLE_ARN_APPLY` repo variables, then push to
-activate the pipeline.
+discovery/matrix — staging/prod get their own copy-pasted
+`terraform-staging.yml` / `terraform-prod.yml` when they exist. `ADR-003`.
+
+**Proven working end to end**: the first real run surfaced three genuine
+bugs (an OIDC trust-condition mismatch discovered via CloudTrail, an
+ASCII-only security group description, and two missing IAM permissions
+for RDS's KMS/Secrets-Manager-managed-password flow) — all found and
+fixed through the pipeline itself, not by falling back to a local apply.
+Network + RDS are now fully deployed via `terraform-dev.yml`.
 
 ### Phase 3 — Redis module ⬜
 ElastiCache replication group, automatic failover variable. `ADR-004`.
