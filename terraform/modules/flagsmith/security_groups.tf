@@ -7,7 +7,7 @@
 # at all despite being "Flagsmith's ops-subnet database."
 resource "aws_security_group" "flagsmith_db" {
   name        = "${var.project_name}-${var.environment}-flagsmith-db-sg"
-  description = "Flagsmith's own Postgres instance - reachable only from the ops SG"
+  description = "Flagsmith own Postgres instance - reachable only from the ops SG"
   vpc_id      = var.vpc_id
   tags        = var.tags
 }
