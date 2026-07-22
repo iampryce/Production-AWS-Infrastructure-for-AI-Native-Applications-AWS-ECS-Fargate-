@@ -92,3 +92,21 @@ module "ecs" {
     ManagedBy   = "terraform"
   }
 }
+
+module "cloudfront" {
+  source = "../../modules/cloudfront"
+
+  providers = {
+    aws.us_east_1 = aws.us_east_1
+  }
+
+  project_name = var.project_name
+  environment  = "dev"
+  domain_name  = var.domain_name
+
+  tags = {
+    Environment = "dev"
+    Project     = var.project_name
+    ManagedBy   = "terraform"
+  }
+}

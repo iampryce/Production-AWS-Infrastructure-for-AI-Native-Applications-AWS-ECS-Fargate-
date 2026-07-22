@@ -20,3 +20,13 @@ terraform {
 provider "aws" {
   region = var.aws_region
 }
+
+# ACM certificates used by CloudFront must be requested in us-east-1
+# specifically, regardless of which region the rest of the stack lives in
+# - an explicit alias makes that AWS requirement visible in code rather
+# than relying on the fact that this project's primary region already
+# happens to be us-east-1.
+provider "aws" {
+  alias  = "us_east_1"
+  region = "us-east-1"
+}

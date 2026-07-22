@@ -15,3 +15,8 @@ multi_az = false
 # terraform.tfvars sets automatic_failover_enabled = true (primary +
 # replica across AZs).
 automatic_failover_enabled = false
+
+# Registered at Namecheap, no Route 53 hosted zone existed yet - Phase 6
+# creates one. Namecheap's nameservers need to be updated to point at it
+# before ACM validation (step 2) can succeed.
+domain_name = "rivetrecords.online"

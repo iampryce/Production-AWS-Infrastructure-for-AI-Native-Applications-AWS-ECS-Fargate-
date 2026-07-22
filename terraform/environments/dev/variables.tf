@@ -28,3 +28,8 @@ variable "automatic_failover_enabled" {
   description = "No default — must come from this environment's terraform.tfvars. false in dev/staging (single Redis node), true in prod (primary + replica, automatic failover)."
   type        = bool
 }
+
+variable "domain_name" {
+  description = "Apex domain for Phase 6 (Route 53 + ACM + CloudFront)."
+  type        = string
+}

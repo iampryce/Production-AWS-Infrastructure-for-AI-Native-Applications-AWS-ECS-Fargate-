@@ -151,6 +151,19 @@ data "aws_iam_policy_document" "github_apply_permissions" {
     resources = ["*"]
   }
 
+  # Route 53 hosted zone IDs and ACM certificate ARNs aren't known ahead
+  # of applying this same change (the zone/cert are created by it), so
+  # scoping tighter than the account would mean a circular reference from
+  # this separate bootstrap state - same reasoning as ec2:*/rds:* above.
+  statement {
+    sid = "EdgeAndDnsPhase6"
+    actions = [
+      "route53:*",
+      "acm:*",
+    ]
+    resources = ["*"]
+  }
+
   # RDS needs the calling principal (this role) to have KMS grant
   # permissions to use a KMS key on its behalf - including the AWS-managed
   # defaults (aws/rds for storage_encrypted, aws/secretsmanager for the
