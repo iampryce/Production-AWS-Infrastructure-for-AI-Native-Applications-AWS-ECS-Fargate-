@@ -111,7 +111,8 @@ through GitHub Actions. What was added, ahead of schedule:
   environment, hardcoded, no dynamic discovery/matrix — easier to read
   than clever. Two jobs gated by event type, not two files: `plan` (PRs
   into `main` touching `terraform/modules/**` or
-  `terraform/environments/dev/**`, read-only role, comments the plan) and
+  `terraform/environments/dev/**`, read-only role, plan output visible in
+  the Actions log) and
   `apply` (push to `main`, read-write role, applies the exact saved plan),
   tied to a GitHub Environment named `dev` so required reviewers can be
   added as a repo setting. Staging/prod get their own copy-pasted

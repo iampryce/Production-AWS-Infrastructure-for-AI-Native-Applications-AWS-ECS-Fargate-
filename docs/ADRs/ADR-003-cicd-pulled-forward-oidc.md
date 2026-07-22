@@ -75,11 +75,25 @@ Environment of the same name (`environment: dev`) — required-reviewer
 protection rules can be added per environment later as a plain repo
 setting, giving prod a manual approval gate without any code change.
 
+**No PR-comment bot for the plan output.** The `plan` job also briefly
+posted the plan as a PR comment via an embedded `actions/github-script`
+block (~25 lines of JS-in-YAML). Dropped it — `terraform plan` already
+writes its full output to the job's Actions log regardless, so the comment
+step bought a small UX convenience (seeing the diff inline in the PR
+instead of one click into Checks) at the cost of being the least
+standard-looking, hardest-to-explain part of the whole file. Removing it
+also removed the reason for `continue-on-error: true` and a manual
+"fail the job if plan failed" step, since `terraform plan` is now allowed
+to fail the job naturally like any other step. Net: five fewer moving
+parts for one click of convenience — worth it on a project meant to be
+read line by line.
+
 ## Consequences
 
 - From this point on, nobody runs `terraform apply` from a laptop — every
-  real change goes through a PR, gets a plan comment, and applies only
-  after merge to `main`.
+  real change goes through a PR, gets planned in the `plan` job (visible in
+  that PR's Actions log — no PR-comment bot, kept deliberately simple), and
+  applies only after merge to `main`.
 - The apply role's policy is a living document — it grows one phase at a
   time, in the same commit that introduces the module needing the new
   permission, so the IAM policy and the infrastructure it's permitting stay
