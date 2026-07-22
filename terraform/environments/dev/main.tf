@@ -103,6 +103,7 @@ module "cloudfront" {
   project_name = var.project_name
   environment  = "dev"
   domain_name  = var.domain_name
+  alb_dns_name = module.ecs.alb_dns_name
 
   tags = {
     Environment = "dev"

@@ -269,8 +269,21 @@ revision, `:2`, referencing this project's own ECR repos instead of Docker
 Hub). `curl http://<alb-dns>/` still returns **HTTP 200** afterward — now
 served from the real pipeline-built image end to end, not the placeholder.
 
-### Phase 6 — Edge / CDN / WAF ⬜
-CloudFront + OAC, WAF, Route 53, ACM. `ADR-007`.
+### Phase 6 — Edge / CDN / WAF ✅
+One CloudFront distribution, two origins (ALB default behavior, uncached;
+S3 asset bucket via OAC on `/assets/*`, cached), WAF Web ACL (two AWS
+managed rule groups + a per-IP rate limit) attached at the edge, real
+registered domain (`rivetrecords.online` — new Route 53 hosted zone, ACM
+cert for apex + `www`). `ADR-007`.
+
+Split into two applies to respect ADR-003's pipeline-only-apply rule —
+no CI job should sit blocked on DNS propagation it doesn't control:
+**step 1** (zone + cert request + validation records, non-blocking) then,
+after nameserver delegation to Namecheap was confirmed propagated by
+checking multiple public resolvers directly, **step 2**
+(`aws_acm_certificate_validation`, S3 bucket, CloudFront distribution,
+WAF). Both plans reviewed and applied clean (dev: 4 + 10 to add across the
+two steps; bootstrap: 1 change + 1 change for the growing IAM policy).
 
 ### Phase 7 — Cloudflare Tunnel ⬜
 EC2 + `cloudflared` in the ops subnet, zero inbound rules. `ADR-008`.

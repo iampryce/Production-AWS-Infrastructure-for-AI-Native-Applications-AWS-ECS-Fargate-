@@ -8,6 +8,22 @@ output "zone_name_servers" {
 }
 
 output "certificate_arn" {
-  description = "Not yet validated - step 2 adds the aws_acm_certificate_validation resource that waits for that, once DNS delegation has propagated."
-  value       = aws_acm_certificate.this.arn
+  description = "Validated (step 2)."
+  value       = aws_acm_certificate_validation.this.certificate_arn
+}
+
+output "cloudfront_domain_name" {
+  value = aws_cloudfront_distribution.this.domain_name
+}
+
+output "cloudfront_distribution_id" {
+  value = aws_cloudfront_distribution.this.id
+}
+
+output "assets_bucket_name" {
+  value = aws_s3_bucket.assets.id
+}
+
+output "site_url" {
+  value = "https://${var.domain_name}"
 }

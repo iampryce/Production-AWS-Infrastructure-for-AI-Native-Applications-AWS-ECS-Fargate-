@@ -160,8 +160,36 @@ data "aws_iam_policy_document" "github_apply_permissions" {
     actions = [
       "route53:*",
       "acm:*",
+      "cloudfront:*",
+      "wafv2:*",
     ]
     resources = ["*"]
+  }
+
+  # New assets bucket from the cloudfront module - separate statement from
+  # TerraformStateBucket below since that one is scoped to exactly one
+  # bucket ARN and shouldn't grow implicitly as more project buckets show
+  # up. Prefix-scoped to this project's buckets only, not every bucket in
+  # the account.
+  statement {
+    sid = "S3ForProjectBuckets"
+    actions = [
+      "s3:CreateBucket",
+      "s3:DeleteBucket",
+      "s3:PutBucketPolicy",
+      "s3:GetBucketPolicy",
+      "s3:DeleteBucketPolicy",
+      "s3:PutBucketPublicAccessBlock",
+      "s3:GetBucketPublicAccessBlock",
+      "s3:PutEncryptionConfiguration",
+      "s3:GetEncryptionConfiguration",
+      "s3:PutBucketTagging",
+      "s3:GetBucketTagging",
+      "s3:ListBucket",
+    ]
+    resources = [
+      "arn:aws:s3:::${var.project_name}-*",
+    ]
   }
 
   # RDS needs the calling principal (this role) to have KMS grant

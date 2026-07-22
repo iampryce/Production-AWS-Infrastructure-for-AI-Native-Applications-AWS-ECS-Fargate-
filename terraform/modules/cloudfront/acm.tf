@@ -39,3 +39,16 @@ resource "aws_route53_record" "cert_validation" {
 
   allow_overwrite = true
 }
+
+# Step 2 (added once DNS delegation to this zone was confirmed propagated
+# via public resolvers, and both domain_validation_options showed
+# SUCCESS/were resolving correctly) - this is the resource that actually
+# polls ACM until the certificate is issued. Safe now; would have hung
+# indefinitely against the registrar's old nameservers before delegation
+# propagated.
+resource "aws_acm_certificate_validation" "this" {
+  provider = aws.us_east_1
+
+  certificate_arn         = aws_acm_certificate.this.arn
+  validation_record_fqdns = [for record in aws_route53_record.cert_validation : record.fqdn]
+}

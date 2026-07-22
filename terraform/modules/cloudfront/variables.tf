@@ -18,6 +18,17 @@ variable "include_www" {
   default     = true
 }
 
+variable "alb_dns_name" {
+  description = "module.ecs.alb_dns_name - CloudFront's default-behavior origin. CloudFront reaches this over the public internet like any custom origin; no VPC-level connectivity involved."
+  type        = string
+}
+
+variable "waf_rate_limit" {
+  description = "Requests per 5-minute window per IP before WAF starts blocking."
+  type        = number
+  default     = 2000
+}
+
 variable "tags" {
   type    = map(string)
   default = {}
