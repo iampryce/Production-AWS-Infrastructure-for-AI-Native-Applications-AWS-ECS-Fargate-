@@ -35,6 +35,18 @@ resource "aws_instance" "this" {
   # out-of-date boot means replace the instance, not patch it in place.
   user_data_replace_on_change = true
 
+  # config_src is ForceNew on the tunnel resource - changing it replaces
+  # the whole tunnel, including its ID. Cloudflare refuses to delete a
+  # tunnel with active connections, and this instance is exactly what's
+  # holding that connection open. Tying this instance's replacement to
+  # the tunnel's own ID means Terraform tears the instance down first
+  # (closing the connection cloudflared holds), then the now-idle tunnel
+  # can actually be deleted, then both get recreated - instead of the
+  # tunnel delete failing against a still-live connection every time.
+  lifecycle {
+    replace_triggered_by = [cloudflare_zero_trust_tunnel_cloudflared.this.id]
+  }
+
   tags = merge(var.tags, {
     Name = "${var.project_name}-${var.environment}-cloudflare-tunnel"
   })
