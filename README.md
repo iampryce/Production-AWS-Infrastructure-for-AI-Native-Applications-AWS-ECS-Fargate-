@@ -260,9 +260,14 @@ a documented procedure. A third, dedicated IAM role
 (`aws-ai-native-infra-github-actions-deploy`) scoped to exactly ECR push +
 `ecs:UpdateService` on this project's own repos/services, separate from
 the apply role. `ADR-006` — the most important one in the project.
-Bootstrap plan reviewed (2 to add) — apply is yours to run. The ECS
-module's `use_placeholder_images` toggle stays `true` until this pipeline
-has pushed something real to `:prod` at least once.
+**Proven live, loop fully closed**: the pipeline ran for real — both repos
+now hold an image tagged with the deploying commit's SHA and `:prod`, both
+ECS services force-redeployed successfully. `use_placeholder_images` was
+then flipped to `false` and applied through `terraform-dev.yml` (2 to add,
+2 to change, 2 to destroy — both task definitions replaced with a new
+revision, `:2`, referencing this project's own ECR repos instead of Docker
+Hub). `curl http://<alb-dns>/` still returns **HTTP 200** afterward — now
+served from the real pipeline-built image end to end, not the placeholder.
 
 ### Phase 6 — Edge / CDN / WAF ⬜
 CloudFront + OAC, WAF, Route 53, ACM. `ADR-007`.
