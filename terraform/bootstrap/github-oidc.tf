@@ -64,17 +64,22 @@ data "aws_iam_policy_document" "github_apply_trust" {
       values   = ["sts.amazonaws.com"]
     }
 
-    # Two independent claims, not one composite sub string. GitHub's OIDC
-    # token changes its `sub` claim format to "repo:OWNER/REPO:environment:NAME"
-    # whenever the job sets `environment:` (as the apply job does, for the
-    # GitHub Environment approval-gate feature) — it stops being
-    # "ref:refs/heads/main" the moment environment: is set. Rather than
-    # chase that composite format, gate on the environment and ref claims
-    # directly; both must match (conditions in one statement are ANDed).
+    # AWS requires this provider's trust policy to evaluate `sub` (or
+    # job_workflow_ref), scoped and non-wildcarded — a policy built only
+    # from other claims like `environment`/`ref` gets rejected outright
+    # ("MalformedPolicyDocument ... must evaluate ... sub ... which is not
+    # scoped to all"), discovered the hard way on the first real apply.
+    # GitHub's OIDC token changes `sub`'s format to
+    # "repo:OWNER/REPO:environment:NAME" the moment a job sets
+    # `environment:` (as the apply job does, for the approval-gate
+    # feature) — it's no longer "ref:refs/heads/main" once that's set.
+    # `ref` stays available as its own separate claim, so it's added as a
+    # second, ANDed condition for extra precision beyond what `sub` alone
+    # requires.
     condition {
       test     = "StringEquals"
-      variable = "token.actions.githubusercontent.com:environment"
-      values   = ["dev"]
+      variable = "token.actions.githubusercontent.com:sub"
+      values   = ["repo:${var.github_repo}:environment:dev"]
     }
 
     condition {
