@@ -10,6 +10,12 @@ on:
     paths:
       - "terraform/modules/**"
       - "terraform/environments/dev/**"
+  workflow_dispatch:
+    inputs:
+      confirm_destroy:
+        description: 'Type "destroy-dev" exactly to tear down every dev resource. Anything else, or leaving it blank, does nothing.'
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -110,3 +116,45 @@ jobs:
         # Applies the exact plan just generated in this job, not a fresh
         # plan re-evaluated at apply time.
         run: terraform apply -input=false tfplan
+
+  destroy:
+    # Two gates before this ever touches real infrastructure: the typed
+    # confirmation string below, and (if configured in repo Settings ->
+    # Environments -> dev) a required-reviewer approval on the same "dev"
+    # environment the apply job uses - manual dispatch alone isn't enough.
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.confirm_destroy == 'destroy-dev'
+    runs-on: ubuntu-latest
+    environment: dev
+    permissions:
+      id-token: write # required for OIDC
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      # Same read-write role apply uses - destroy needs the same access,
+      # just in reverse.
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN_APPLY }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.14.6"
+
+      - name: Terraform Init
+        working-directory: terraform/environments/dev
+        run: terraform init -input=false
+
+      - name: Terraform Destroy
+        working-directory: terraform/environments/dev
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          TF_VAR_slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          TF_VAR_grafana_cloud_api_key: ${{ secrets.GRAFANA_CLOUD_API_KEY }}
+          TF_VAR_openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+        # Full refresh (no -refresh=false) - this role already has
+        # secretsmanager:GetSecretValue (unlike the read-only plan role),
+        # and destroy needs an accurate picture of what's actually live,
+        # not a diff against last-known state.
+        run: terraform destroy -input=false -auto-approve
