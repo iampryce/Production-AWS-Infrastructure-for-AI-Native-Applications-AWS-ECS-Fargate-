@@ -7,6 +7,12 @@ variable "environment" {
   type = string
 }
 
+variable "ecr_force_delete" {
+  description = "true by default so a repo still holding images doesn't block `terraform destroy` (fast, cheap teardown for dev/staging). Prod's terraform.tfvars should set this to false - deleting a repo full of production images shouldn't be a side effect of an unrelated destroy."
+  type        = bool
+  default     = true
+}
+
 variable "vpc_id" {
   type = string
 }

@@ -3,7 +3,8 @@
 # public directly.
 
 resource "aws_s3_bucket" "assets" {
-  bucket = "${var.project_name}-${var.environment}-assets"
+  bucket        = "${var.project_name}-${var.environment}-assets"
+  force_destroy = var.assets_bucket_force_destroy
 
   tags = var.tags
 }

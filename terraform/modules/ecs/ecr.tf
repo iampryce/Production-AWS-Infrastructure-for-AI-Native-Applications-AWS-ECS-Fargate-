@@ -7,6 +7,7 @@
 resource "aws_ecr_repository" "fastapi" {
   name                 = "${var.project_name}-${var.environment}-fastapi"
   image_tag_mutability = "MUTABLE" # required for a moving tag like :prod
+  force_delete         = var.ecr_force_delete
 
   image_scanning_configuration {
     scan_on_push = true
@@ -18,6 +19,7 @@ resource "aws_ecr_repository" "fastapi" {
 resource "aws_ecr_repository" "celery" {
   name                 = "${var.project_name}-${var.environment}-celery"
   image_tag_mutability = "MUTABLE"
+  force_delete         = var.ecr_force_delete
 
   image_scanning_configuration {
     scan_on_push = true

@@ -7,6 +7,12 @@ variable "environment" {
   type = string
 }
 
+variable "assets_bucket_force_destroy" {
+  description = "true by default so a bucket still holding generated assets doesn't block `terraform destroy` (fast, cheap teardown for dev/staging). Prod's terraform.tfvars should set this to false."
+  type        = bool
+  default     = true
+}
+
 variable "domain_name" {
   description = "Apex domain, e.g. rivetrecords.online. No Route 53 hosted zone exists yet for this in this account - this module creates one."
   type        = string
